@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>Randomancer</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#111118;touch-action:none}
+body{display:flex;justify-content:center;align-items:center;flex-direction:column;font-family:system-ui,sans-serif}
+canvas{display:block;max-width:100vw;max-height:100vh;object-fit:contain}
+#loading{position:fixed;inset:0;display:flex;justify-content:center;align-items:center;color:#c8b870;font-size:1.2rem;background:#111118;z-index:10;transition:opacity .4s}
+#loading.hidden{opacity:0;pointer-events:none}
+</style>
+</head>
+<body>
+<div id="loading">Loading Randomancer...</div>
+<script>
+var Module={
+  canvas:(function(){var c=document.createElement('canvas');c.addEventListener('contextmenu',function(e){e.preventDefault()});document.body.appendChild(c);return c})(),
+  onRuntimeInitialized:function(){document.getElementById('loading').classList.add('hidden')}
+};
+</script>
+{{{ SCRIPT }}}
+</body>
+</html>
