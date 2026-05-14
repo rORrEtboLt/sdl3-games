@@ -65,8 +65,11 @@ else()
 
     if(EMSCRIPTEN)
         set(CMAKE_EXECUTABLE_SUFFIX ".html")
-        set_target_properties(maayavi PROPERTIES
-            LINK_FLAGS "-s ALLOW_MEMORY_GROWTH=1 -s INITIAL_MEMORY=33554432 --shell-file ${CMAKE_CURRENT_SOURCE_DIR}/web/shell.html"
+        target_link_options(maayavi PRIVATE
+            -sALLOW_MEMORY_GROWTH=1
+            -sINITIAL_MEMORY=33554432
+            -sFULL_ES2=1
+            "SHELL:--shell-file ${CMAKE_CURRENT_SOURCE_DIR}/web/shell.html"
         )
     endif()
 endif()
