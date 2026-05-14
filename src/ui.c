@@ -1,0 +1,264 @@
+#include "ui.h"
+#include <stdio.h>
+
+static void setup_theme(struct nk_context *ctx) {
+    struct nk_color table[NK_COLOR_COUNT];
+    table[NK_COLOR_TEXT]                    = nk_rgba(220, 200, 150, 255);
+    table[NK_COLOR_WINDOW]                  = nk_rgba(18, 14, 28, 240);
+    table[NK_COLOR_HEADER]                  = nk_rgba(30, 25, 45, 255);
+    table[NK_COLOR_BORDER]                  = nk_rgba(140, 110, 50, 180);
+    table[NK_COLOR_BUTTON]                  = nk_rgba(50, 38, 60, 255);
+    table[NK_COLOR_BUTTON_HOVER]            = nk_rgba(70, 55, 85, 255);
+    table[NK_COLOR_BUTTON_ACTIVE]           = nk_rgba(90, 70, 40, 255);
+    table[NK_COLOR_TOGGLE]                  = nk_rgba(40, 30, 50, 255);
+    table[NK_COLOR_TOGGLE_HOVER]            = nk_rgba(60, 48, 70, 255);
+    table[NK_COLOR_TOGGLE_CURSOR]           = nk_rgba(200, 170, 80, 255);
+    table[NK_COLOR_SELECT]                  = nk_rgba(40, 30, 50, 255);
+    table[NK_COLOR_SELECT_ACTIVE]           = nk_rgba(200, 170, 80, 255);
+    table[NK_COLOR_SLIDER]                  = nk_rgba(40, 30, 50, 255);
+    table[NK_COLOR_SLIDER_CURSOR]           = nk_rgba(200, 170, 80, 255);
+    table[NK_COLOR_SLIDER_CURSOR_HOVER]     = nk_rgba(230, 200, 100, 255);
+    table[NK_COLOR_SLIDER_CURSOR_ACTIVE]    = nk_rgba(255, 220, 120, 255);
+    table[NK_COLOR_PROPERTY]                = nk_rgba(40, 30, 50, 255);
+    table[NK_COLOR_EDIT]                    = nk_rgba(30, 22, 40, 255);
+    table[NK_COLOR_EDIT_CURSOR]             = nk_rgba(200, 170, 80, 255);
+    table[NK_COLOR_COMBO]                   = nk_rgba(40, 30, 50, 255);
+    table[NK_COLOR_CHART]                   = nk_rgba(40, 30, 50, 255);
+    table[NK_COLOR_CHART_COLOR]             = nk_rgba(200, 170, 80, 255);
+    table[NK_COLOR_CHART_COLOR_HIGHLIGHT]   = nk_rgba(255, 220, 120, 255);
+    table[NK_COLOR_SCROLLBAR]               = nk_rgba(30, 22, 40, 255);
+    table[NK_COLOR_SCROLLBAR_CURSOR]        = nk_rgba(80, 65, 45, 255);
+    table[NK_COLOR_SCROLLBAR_CURSOR_HOVER]  = nk_rgba(100, 85, 55, 255);
+    table[NK_COLOR_SCROLLBAR_CURSOR_ACTIVE] = nk_rgba(120, 100, 65, 255);
+    table[NK_COLOR_TAB_HEADER]              = nk_rgba(40, 30, 50, 255);
+    nk_style_from_table(ctx, table);
+
+    ctx->style.button.rounding = 4;
+    ctx->style.button.padding = nk_vec2(12, 8);
+    ctx->style.window.spacing = nk_vec2(8, 8);
+    ctx->style.window.padding = nk_vec2(16, 16);
+}
+
+void ui_init(Game *game) {
+    struct nk_sdl3 *sdl = nk_sdl3_init(game->renderer, VIRTUAL_W, VIRTUAL_H);
+    if (sdl) setup_theme(&sdl->ctx);
+    game->nk_sdl = sdl;
+}
+
+void ui_shutdown(Game *game) {
+    nk_sdl3_shutdown((struct nk_sdl3 *)game->nk_sdl);
+    game->nk_sdl = NULL;
+}
+
+void ui_handle_event(Game *game, SDL_Event *event) {
+    struct nk_sdl3 *sdl = (struct nk_sdl3 *)game->nk_sdl;
+    if (sdl) nk_sdl3_handle_event(sdl, event);
+}
+
+void ui_render_splash(Game *game) {
+    struct nk_sdl3 *sdl = (struct nk_sdl3 *)game->nk_sdl;
+    if (!sdl) return;
+    struct nk_context *ctx = &sdl->ctx;
+
+    nk_sdl3_new_frame(sdl);
+
+    float pw = 300, ph = 200;
+    float px = (VIRTUAL_W - pw) / 2, py = 400;
+
+    if (nk_begin(ctx, "splash_ui", nk_rect(px, py, pw, ph),
+                 NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BORDER)) {
+        if (game->splash_timer > 2.0f) {
+            nk_layout_row_dynamic(ctx, 20, 1);
+            nk_spacing(ctx, 1);
+            nk_layout_row_dynamic(ctx, 50, 1);
+            if (nk_button_label(ctx, "TAP TO CONTINUE")) {
+                game->state = STATE_MENU;
+                game->menu_anim_timer = 0;
+            }
+        }
+    }
+    nk_end(ctx);
+
+    nk_sdl3_render(sdl);
+}
+
+void ui_render_menu(Game *game) {
+    struct nk_sdl3 *sdl = (struct nk_sdl3 *)game->nk_sdl;
+    if (!sdl) return;
+    struct nk_context *ctx = &sdl->ctx;
+
+    nk_sdl3_new_frame(sdl);
+
+    float panel_w = 340, panel_h = 520;
+    float px = (VIRTUAL_W - panel_w) / 2;
+    float py = 30;
+
+    if (nk_begin(ctx, "menu", nk_rect(px, py, panel_w, panel_h),
+                 NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BORDER)) {
+
+        nk_layout_row_dynamic(ctx, 15, 1);
+        nk_spacing(ctx, 1);
+
+        nk_layout_row_dynamic(ctx, 30, 1);
+        nk_label_colored(ctx, "M A A Y A V I", NK_TEXT_CENTERED,
+                         nk_rgba(255, 200, 50, 255));
+
+        nk_layout_row_dynamic(ctx, 20, 1);
+        nk_label_colored(ctx, "Dice Lane Defense", NK_TEXT_CENTERED,
+                         nk_rgba(180, 160, 120, 180));
+
+        nk_layout_row_dynamic(ctx, 50, 1);
+        nk_spacing(ctx, 1);
+
+        nk_layout_row_dynamic(ctx, 50, 1);
+        if (nk_button_label(ctx, "PLAY")) {
+            game_start(game);
+        }
+
+        nk_layout_row_dynamic(ctx, 10, 1);
+        nk_spacing(ctx, 1);
+
+        nk_layout_row_dynamic(ctx, 50, 1);
+        if (nk_button_label(ctx, "SETTINGS")) {
+            game->state = STATE_SETTINGS;
+            game->settings_selection = 0;
+        }
+
+        nk_layout_row_dynamic(ctx, 30, 1);
+        nk_spacing(ctx, 1);
+
+        nk_layout_row_dynamic(ctx, 15, 1);
+        nk_label_colored(ctx, "v1.0", NK_TEXT_CENTERED,
+                         nk_rgba(100, 90, 80, 120));
+    }
+    nk_end(ctx);
+
+    nk_sdl3_render(sdl);
+}
+
+void ui_render_settings(Game *game) {
+    struct nk_sdl3 *sdl = (struct nk_sdl3 *)game->nk_sdl;
+    if (!sdl) return;
+    struct nk_context *ctx = &sdl->ctx;
+
+    nk_sdl3_new_frame(sdl);
+
+    float panel_w = 360, panel_h = 580;
+    float px = (VIRTUAL_W - panel_w) / 2;
+    float py = 20;
+
+    if (nk_begin(ctx, "settings", nk_rect(px, py, panel_w, panel_h),
+                 NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BORDER)) {
+
+        nk_layout_row_dynamic(ctx, 10, 1);
+        nk_spacing(ctx, 1);
+
+        nk_layout_row_dynamic(ctx, 25, 1);
+        nk_label_colored(ctx, "SETTINGS", NK_TEXT_CENTERED,
+                         nk_rgba(255, 200, 50, 255));
+
+        nk_layout_row_dynamic(ctx, 15, 1);
+        nk_spacing(ctx, 1);
+
+        nk_layout_row_dynamic(ctx, 20, 1);
+        nk_label(ctx, "Screen Shake", NK_TEXT_LEFT);
+
+        nk_layout_row_dynamic(ctx, 35, 1);
+        if (nk_button_label(ctx, game->settings.screen_shake ? "ON" : "OFF"))
+            game->settings.screen_shake = !game->settings.screen_shake;
+
+        nk_layout_row_dynamic(ctx, 15, 1);
+        nk_spacing(ctx, 1);
+
+        nk_layout_row_dynamic(ctx, 20, 1);
+        nk_label(ctx, "Difficulty", NK_TEXT_LEFT);
+
+        nk_layout_row_dynamic(ctx, 35, 1);
+        const char *diff_names[] = {"EASY", "NORMAL", "HARD"};
+        if (nk_button_label(ctx, diff_names[game->settings.difficulty]))
+            game->settings.difficulty = (game->settings.difficulty + 1) % 3;
+
+        nk_layout_row_dynamic(ctx, 18, 1);
+        const char *diff_desc[] = {
+            "Fewer enemies, slower spawns",
+            "Balanced challenge",
+            "More enemies, faster spawns"
+        };
+        nk_label_colored(ctx, diff_desc[game->settings.difficulty], NK_TEXT_CENTERED,
+                         nk_rgba(130, 120, 100, 200));
+
+        nk_layout_row_dynamic(ctx, 20, 1);
+        nk_spacing(ctx, 1);
+
+        nk_layout_row_dynamic(ctx, 20, 1);
+        nk_label_colored(ctx, "How to Play", NK_TEXT_LEFT,
+                         nk_rgba(180, 170, 140, 200));
+
+        nk_layout_row_dynamic(ctx, 16, 1);
+        nk_label_colored(ctx, "Drag dice onto the field", NK_TEXT_LEFT, nk_rgba(150, 140, 120, 180));
+        nk_layout_row_dynamic(ctx, 16, 1);
+        nk_label_colored(ctx, "to summon warriors.", NK_TEXT_LEFT, nk_rgba(150, 140, 120, 180));
+        nk_layout_row_dynamic(ctx, 16, 1);
+        nk_label_colored(ctx, "Each face = different unit.", NK_TEXT_LEFT, nk_rgba(150, 140, 120, 180));
+        nk_layout_row_dynamic(ctx, 16, 1);
+        nk_label_colored(ctx, "Stop the demons!", NK_TEXT_LEFT, nk_rgba(150, 140, 120, 180));
+
+        nk_layout_row_dynamic(ctx, 15, 1);
+        nk_spacing(ctx, 1);
+
+        nk_layout_row_dynamic(ctx, 45, 1);
+        if (nk_button_label(ctx, "BACK")) {
+            game->state = STATE_MENU;
+            game->menu_anim_timer = 0;
+        }
+    }
+    nk_end(ctx);
+
+    nk_sdl3_render(sdl);
+}
+
+void ui_render_game_over(Game *game) {
+    struct nk_sdl3 *sdl = (struct nk_sdl3 *)game->nk_sdl;
+    if (!sdl) return;
+    struct nk_context *ctx = &sdl->ctx;
+
+    nk_sdl3_new_frame(sdl);
+
+    float panel_w = 340, panel_h = 320;
+    float px = (VIRTUAL_W - panel_w) / 2;
+    float py = 100;
+
+    if (nk_begin(ctx, "gameover", nk_rect(px, py, panel_w, panel_h),
+                 NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BORDER)) {
+
+        nk_layout_row_dynamic(ctx, 20, 1);
+        nk_spacing(ctx, 1);
+
+        nk_layout_row_dynamic(ctx, 30, 1);
+        nk_label_colored(ctx, "GAME OVER", NK_TEXT_CENTERED, nk_rgba(255, 60, 60, 255));
+
+        nk_layout_row_dynamic(ctx, 15, 1);
+        nk_spacing(ctx, 1);
+
+        char buf[64];
+        nk_layout_row_dynamic(ctx, 22, 1);
+        SDL_snprintf(buf, sizeof(buf), "Score: %d", game->score);
+        nk_label_colored(ctx, buf, NK_TEXT_CENTERED, nk_rgba(255, 200, 50, 255));
+
+        nk_layout_row_dynamic(ctx, 22, 1);
+        SDL_snprintf(buf, sizeof(buf), "Wave: %d", game->wave);
+        nk_label_colored(ctx, buf, NK_TEXT_CENTERED, nk_rgba(255, 200, 50, 255));
+
+        nk_layout_row_dynamic(ctx, 30, 1);
+        nk_spacing(ctx, 1);
+
+        nk_layout_row_dynamic(ctx, 50, 1);
+        if (nk_button_label(ctx, "BACK TO MENU")) {
+            game->state = STATE_MENU;
+            game->menu_anim_timer = 0;
+        }
+    }
+    nk_end(ctx);
+
+    nk_sdl3_render(sdl);
+}

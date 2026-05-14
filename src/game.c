@@ -43,9 +43,11 @@ static void anim_init(AnimComp *a) {
     a->state_timer = 0;
     a->flash_active = false;
     a->flash_timer = 0;
-    a->scale_x = 1.0f;
-    a->scale_y = 1.0f;
+    a->scale_x = 0.2f;
+    a->scale_y = 0.2f;
     a->bob_phase = random_float(0, 6.28f);
+    a->spawn_timer = 0.3f;
+    a->lean = 0;
 }
 
 static void anim_set_state(AnimComp *a, AnimState s) {
@@ -63,31 +65,61 @@ static void anim_trigger_flash(AnimComp *a) {
 
 static void anim_update(AnimComp *a, float dt) {
     a->state_timer += dt;
-    a->bob_phase += dt * 3.0f;
+    a->bob_phase += dt * 3.5f;
+
+    if (a->spawn_timer > 0) {
+        a->spawn_timer -= dt;
+        if (a->spawn_timer < 0) a->spawn_timer = 0;
+        float t = 1.0f - a->spawn_timer / 0.3f;
+        float overshoot = t < 0.7f ? t / 0.7f * 1.2f : 1.2f - (t - 0.7f) / 0.3f * 0.2f;
+        a->scale_x = overshoot;
+        a->scale_y = 2.0f - overshoot;
+        return;
+    }
 
     if (a->flash_active) {
         a->flash_timer -= dt;
         if (a->flash_timer <= 0) a->flash_active = false;
     }
 
+    a->lean *= 0.9f;
+
     switch (a->state) {
     case ANIM_IDLE:
-    case ANIM_WALK:
         a->frame_timer += dt;
-        if (a->frame_timer >= 0.4f) {
+        if (a->frame_timer >= 0.5f) {
             a->frame_timer = 0;
             a->frame = 1 - a->frame;
         }
-        a->scale_y = 1.0f + 0.04f * sinf(a->bob_phase);
-        a->scale_x = 1.0f - 0.04f * sinf(a->bob_phase);
+        a->scale_y = 1.0f + 0.05f * sinf(a->bob_phase);
+        a->scale_x = 1.0f - 0.03f * sinf(a->bob_phase);
+        break;
+    case ANIM_WALK:
+        a->frame_timer += dt;
+        if (a->frame_timer >= 0.3f) {
+            a->frame_timer = 0;
+            a->frame = 1 - a->frame;
+        }
+        a->scale_y = 1.0f + 0.06f * sinf(a->bob_phase * 1.8f);
+        a->scale_x = 1.0f - 0.04f * sinf(a->bob_phase * 1.8f);
+        a->lean = sinf(a->bob_phase * 1.8f) * 1.5f;
         break;
     case ANIM_ATTACK:
-        if (a->state_timer < 0.1f) {
-            a->scale_x = 1.2f;
-            a->scale_y = 0.8f;
-        } else if (a->state_timer < 0.2f) {
-            a->scale_x = 0.85f;
-            a->scale_y = 1.2f;
+        if (a->state_timer < 0.08f) {
+            float t = a->state_timer / 0.08f;
+            a->scale_x = 1.0f + 0.25f * t;
+            a->scale_y = 1.0f - 0.2f * t;
+            a->lean = -3.0f * t;
+        } else if (a->state_timer < 0.16f) {
+            float t = (a->state_timer - 0.08f) / 0.08f;
+            a->scale_x = 1.25f - 0.45f * t;
+            a->scale_y = 0.8f + 0.4f * t;
+            a->lean = -3.0f + 5.0f * t;
+        } else if (a->state_timer < 0.28f) {
+            float t = (a->state_timer - 0.16f) / 0.12f;
+            a->scale_x = 0.8f + 0.2f * t;
+            a->scale_y = 1.2f - 0.2f * t;
+            a->lean = 2.0f * (1.0f - t);
         } else {
             a->state = ANIM_IDLE;
             a->scale_x = 1.0f;
@@ -95,9 +127,16 @@ static void anim_update(AnimComp *a, float dt) {
         }
         break;
     case ANIM_HURT:
-        a->scale_x = 1.15f;
-        a->scale_y = 0.85f;
-        if (a->state_timer >= 0.12f) {
+        if (a->state_timer < 0.06f) {
+            a->scale_x = 1.2f;
+            a->scale_y = 0.8f;
+            a->lean = 4.0f;
+        } else if (a->state_timer < 0.15f) {
+            float t = (a->state_timer - 0.06f) / 0.09f;
+            a->scale_x = 1.2f - 0.2f * t;
+            a->scale_y = 0.8f + 0.2f * t;
+            a->lean = 4.0f * (1.0f - t);
+        } else {
             a->state = ANIM_IDLE;
             a->scale_x = 1.0f;
             a->scale_y = 1.0f;
@@ -218,7 +257,14 @@ static void spawn_death_burst(Game *game, float x, float y, bool is_boss) {
 /* ---------- init / start ---------- */
 
 void game_init(Game *game) {
-    game->state = STATE_TITLE;
+    game->state = STATE_SPLASH;
+    game->splash_timer = 0;
+    game->splash_fade = 0;
+    game->menu_selection = 0;
+    game->settings_selection = 0;
+    game->menu_anim_timer = 0;
+    game->settings.screen_shake = true;
+    game->settings.difficulty = 1;
     game->last_tick = SDL_GetTicks();
     game->dragging_dice = -1;
     srand((unsigned int)SDL_GetTicks());
@@ -339,8 +385,16 @@ void game_handle_event(Game *game, SDL_Event *event) {
         else
             SDL_RenderCoordinatesFromWindow(game->renderer, event->button.x, event->button.y, &mx, &my);
 
-        if (game->state == STATE_TITLE) { game_start(game); return; }
-        if (game->state == STATE_GAME_OVER) { game->state = STATE_TITLE; return; }
+        if (game->state == STATE_SPLASH) {
+            if (game->splash_timer > 1.0f) {
+                game->state = STATE_MENU;
+                game->menu_anim_timer = 0;
+            }
+            return;
+        }
+        if (game->state == STATE_MENU || game->state == STATE_SETTINGS ||
+            game->state == STATE_GAME_OVER)
+            return;
 
         if (game->state == STATE_PLAYING && game->dragging_dice < 0) {
             for (int i = 0; i < MAX_DICE; i++) {
@@ -668,7 +722,8 @@ static void update_waves(Game *game, float dt) {
         if (game->wave_timer <= 0) {
             game->wave++;
             game->wave_active = true;
-            game->enemies_remaining = game->wave + 2;
+            int extra[] = {-1, 0, 2};
+            game->enemies_remaining = game->wave + 2 + extra[game->settings.difficulty];
             if (game->wave % 5 == 0) game->enemies_remaining += 1;
             game->spawn_timer = 0;
             game->wave_banner_timer = 2.0f;
@@ -684,8 +739,9 @@ static void update_waves(Game *game, float dt) {
                 else
                     spawn_enemy(game, lane, enemy_type_for_wave(game->wave));
                 game->enemies_remaining--;
-                float interval = 2.0f - game->wave * 0.1f;
-                if (interval < 0.5f) interval = 0.5f;
+                float diff_mult[] = {1.4f, 1.0f, 0.7f};
+                float interval = (2.0f - game->wave * 0.1f) * diff_mult[game->settings.difficulty];
+                if (interval < 0.4f) interval = 0.4f;
                 game->spawn_timer = interval;
             }
         } else {
@@ -727,14 +783,44 @@ static void update_screen_flash(Game *game, float dt) {
 }
 
 void game_update(Game *game, float dt) {
+    if (game->state == STATE_SPLASH) {
+        game->splash_timer += dt;
+        if (game->splash_timer < 1.5f)
+            game->splash_fade = game->splash_timer / 1.5f;
+        else if (game->splash_timer < 3.5f)
+            game->splash_fade = 1.0f;
+        else if (game->splash_timer < 4.5f)
+            game->splash_fade = 1.0f - (game->splash_timer - 3.5f) / 1.0f;
+        else {
+            game->state = STATE_MENU;
+            game->menu_anim_timer = 0;
+        }
+        if (game->splash_fade < 0) game->splash_fade = 0;
+        if (game->splash_fade > 1) game->splash_fade = 1;
+        return;
+    }
+
+    if (game->state == STATE_MENU) {
+        game->menu_anim_timer += dt;
+        return;
+    }
+
+    if (game->state == STATE_SETTINGS) return;
     if (game->state != STATE_PLAYING) return;
+
     update_dice(game, dt);
     update_units(game, dt);
     update_enemies(game, dt);
     update_projectiles(game, dt);
     update_particles(game, dt);
     update_waves(game, dt);
-    update_shake(game, dt);
+    if (game->settings.screen_shake)
+        update_shake(game, dt);
+    else {
+        game->shake_timer = 0;
+        game->shake_x = 0;
+        game->shake_y = 0;
+    }
     update_decals(game, dt);
     update_screen_flash(game, dt);
 }

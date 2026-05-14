@@ -53,7 +53,9 @@ typedef enum {
 } DiceState;
 
 typedef enum {
-    STATE_TITLE,
+    STATE_SPLASH,
+    STATE_MENU,
+    STATE_SETTINGS,
     STATE_PLAYING,
     STATE_GAME_OVER,
 } GameState;
@@ -81,6 +83,8 @@ typedef struct {
     float flash_timer;
     float scale_x, scale_y;
     float bob_phase;
+    float spawn_timer;
+    float lean;
 } AnimComp;
 
 typedef struct {
@@ -148,6 +152,11 @@ typedef struct {
 } Decal;
 
 typedef struct {
+    bool screen_shake;
+    int difficulty;
+} Settings;
+
+typedef struct {
     GameState state;
     SDL_Renderer *renderer;
     SDL_Window *window;
@@ -184,6 +193,15 @@ typedef struct {
     SDL_Texture *sprite_atlas;
 
     Uint64 last_tick;
+
+    float splash_timer;
+    float splash_fade;
+    int menu_selection;
+    int settings_selection;
+    Settings settings;
+    float menu_anim_timer;
+
+    void *nk_sdl;
 } Game;
 
 void game_init(Game *game);
