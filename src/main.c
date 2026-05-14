@@ -3,6 +3,7 @@
 #include <SDL3/SDL_main.h>
 #include "game.h"
 #include "sprites.h"
+#include "ui.h"
 
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
     (void)argc;
@@ -16,7 +17,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
     Game *game = SDL_calloc(1, sizeof(Game));
     if (!game) return SDL_APP_FAILURE;
 
-    game->window = SDL_CreateWindow("Randomancer",
+    game->window = SDL_CreateWindow("Maayavi",
         VIRTUAL_W, VIRTUAL_H,
         SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
     if (!game->window) {
@@ -47,6 +48,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
     }
 
     game_init(game);
+    ui_init(game);
 
     *appstate = game;
     return SDL_APP_CONTINUE;
@@ -70,7 +72,9 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
     if (event->type == SDL_EVENT_QUIT)
         return SDL_APP_SUCCESS;
 
-    game_handle_event((Game *)appstate, event);
+    Game *game = (Game *)appstate;
+    ui_handle_event(game, event);
+    game_handle_event(game, event);
     return SDL_APP_CONTINUE;
 }
 
@@ -78,6 +82,7 @@ void SDL_AppQuit(void *appstate, SDL_AppResult result) {
     (void)result;
     Game *game = (Game *)appstate;
     if (game) {
+        ui_shutdown(game);
         sprite_atlas_cleanup(game->sprite_atlas);
         if (game->renderer) SDL_DestroyRenderer(game->renderer);
         if (game->window) SDL_DestroyWindow(game->window);

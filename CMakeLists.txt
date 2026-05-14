@@ -7,7 +7,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
     set(SDL_STATIC ON CACHE BOOL "" FORCE)
 endif()
 
-project(randomancer C)
+project(maayavi C)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -21,23 +21,27 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(SDL3)
 
-if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
-    add_executable(randomancer MACOSX_BUNDLE
-        src/main.c
-        src/game.c
-        src/render.c
-        src/sprites.c
-    )
-    target_link_libraries(randomancer PRIVATE SDL3::SDL3-static)
+set(GAME_SOURCES
+    src/main.c
+    src/game.c
+    src/render.c
+    src/sprites.c
+    src/nk_sdl3.c
+    src/ui.c
+)
 
-    set_target_properties(randomancer PROPERTIES
+if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    add_executable(maayavi MACOSX_BUNDLE ${GAME_SOURCES})
+    target_link_libraries(maayavi PRIVATE SDL3::SDL3-static)
+
+    set_target_properties(maayavi PROPERTIES
         MACOSX_BUNDLE TRUE
         MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/Info.plist.in
-        MACOSX_BUNDLE_GUI_IDENTIFIER "com.randomancer.game"
-        MACOSX_BUNDLE_BUNDLE_NAME "Randomancer"
+        MACOSX_BUNDLE_GUI_IDENTIFIER "com.maayavi.game"
+        MACOSX_BUNDLE_BUNDLE_NAME "Maayavi"
         MACOSX_BUNDLE_BUNDLE_VERSION "1.0"
         MACOSX_BUNDLE_SHORT_VERSION_STRING "1.0"
-        XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "com.randomancer.game"
+        XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "com.maayavi.game"
         XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "1"
         XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET "15.0"
         XCODE_ATTRIBUTE_ASSETCATALOG_COMPILER_APPICON_NAME "AppIcon"
@@ -48,7 +52,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
         RESOURCE "${CMAKE_CURRENT_SOURCE_DIR}/LaunchScreen.storyboard"
     )
 
-    target_sources(randomancer PRIVATE
+    target_sources(maayavi PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/LaunchScreen.storyboard
     )
     set_source_files_properties(
@@ -56,20 +60,15 @@ if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
         PROPERTIES MACOSX_PACKAGE_LOCATION Resources
     )
 else()
-    add_executable(randomancer
-        src/main.c
-        src/game.c
-        src/render.c
-        src/sprites.c
-    )
-    target_link_libraries(randomancer PRIVATE SDL3::SDL3)
+    add_executable(maayavi ${GAME_SOURCES})
+    target_link_libraries(maayavi PRIVATE SDL3::SDL3)
 
     if(EMSCRIPTEN)
         set(CMAKE_EXECUTABLE_SUFFIX ".html")
-        set_target_properties(randomancer PROPERTIES
+        set_target_properties(maayavi PROPERTIES
             LINK_FLAGS "-s ALLOW_MEMORY_GROWTH=1 -s INITIAL_MEMORY=33554432 --shell-file ${CMAKE_CURRENT_SOURCE_DIR}/web/shell.html"
         )
     endif()
 endif()
 
-target_include_directories(randomancer PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_include_directories(maayavi PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)

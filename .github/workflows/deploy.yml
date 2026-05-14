@@ -34,9 +34,9 @@ jobs:
       - name: Prepare site
         run: |
           mkdir -p site
-          cp build/randomancer.html site/index.html
-          cp build/randomancer.js site/
-          cp build/randomancer.wasm site/
+          cp build/maayavi.html site/index.html
+          cp build/maayavi.js site/
+          cp build/maayavi.wasm site/
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
