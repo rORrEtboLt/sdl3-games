@@ -4,29 +4,84 @@
 #include <stdio.h>
 
 static const struct { Uint8 r, g, b; } UNIT_COLORS[] = {
-    [UNIT_NONE]     = {128, 128, 128},
-    [UNIT_SPEARMAN] = {180, 130, 60},
-    [UNIT_ARCHER]   = {70,  125, 55},
-    [UNIT_KNIGHT]   = {160, 165, 180},
-    [UNIT_CAMEL]    = {195, 165, 105},
-    [UNIT_SAGE]     = {230, 220, 200},
-    [UNIT_ELEPHANT] = {135, 135, 140},
+    [UNIT_NONE]     = {117, 113, 143},
+    [UNIT_SPEARMAN] = {94,  118, 166},
+    [UNIT_ARCHER]   = {96,  154, 122},
+    [UNIT_KNIGHT]   = {118, 154, 178},
+    [UNIT_CAMEL]    = {151, 101, 141},
+    [UNIT_SAGE]     = {120, 239, 229},
+    [UNIT_ELEPHANT] = {117, 101, 157},
 };
 
 static const struct { Uint8 r, g, b; } PROJ_COLORS[] = {
-    [UNIT_NONE]     = {255, 220, 50},
-    [UNIT_SPEARMAN] = {255, 220, 50},
-    [UNIT_ARCHER]   = {200, 170, 80},
-    [UNIT_KNIGHT]   = {200, 200, 210},
-    [UNIT_CAMEL]    = {180, 80,  40},
-    [UNIT_SAGE]     = {100, 255, 100},
-    [UNIT_ELEPHANT] = {255, 120, 20},
+    [UNIT_NONE]     = {229, 174, 58},
+    [UNIT_SPEARMAN] = {229, 174, 58},
+    [UNIT_ARCHER]   = {220, 232, 154},
+    [UNIT_KNIGHT]   = {201, 238, 218},
+    [UNIT_CAMEL]    = {204, 73, 118},
+    [UNIT_SAGE]     = {120, 239, 229},
+    [UNIT_ELEPHANT] = {241, 100, 112},
 };
+
+static Uint8 clamp_u8(int v) {
+    if (v < 0) return 0;
+    if (v > 255) return 255;
+    return (Uint8)v;
+}
+
+static int pixel_noise(int x, int y, int salt) {
+    unsigned n = (unsigned)(x * 1103515245u + y * 12345u + salt * 2654435761u);
+    n ^= n >> 13;
+    n *= 1274126177u;
+    return (int)((n ^ (n >> 16)) & 31) - 15;
+}
 
 static void draw_filled_circle(SDL_Renderer *r, float cx, float cy, float radius) {
     for (float y = -radius; y <= radius; y += 1.0f) {
         float hw = sqrtf(radius * radius - y * y);
         SDL_RenderLine(r, cx - hw, cy + y, cx + hw, cy + y);
+    }
+}
+
+static void draw_pixel_speckles(SDL_Renderer *r, int x, int y, int w, int h,
+                                Uint8 cr, Uint8 cg, Uint8 cb, Uint8 alpha, int salt) {
+    for (int yy = y; yy < y + h; yy += 3) {
+        for (int xx = x; xx < x + w; xx += 3) {
+            if ((pixel_noise(xx, yy, salt) & 7) == 0) {
+                SDL_SetRenderDrawColor(r, cr, cg, cb, alpha);
+                SDL_FRect dot = {(float)xx, (float)yy, 1.0f, 1.0f};
+                SDL_RenderFillRect(r, &dot);
+            }
+        }
+    }
+}
+
+static void draw_pixel_rect(SDL_Renderer *r, float x, float y, float w, float h,
+                            Uint8 cr, Uint8 cg, Uint8 cb, Uint8 alpha) {
+    SDL_SetRenderDrawColor(r, cr, cg, cb, alpha);
+    SDL_FRect rect = {x, y, w, h};
+    SDL_RenderFillRect(r, &rect);
+}
+
+static void draw_triangle(SDL_Renderer *r, float ax, float ay, float bx, float by, float cx, float cy) {
+    float min_y = fminf(ay, fminf(by, cy));
+    float max_y = fmaxf(ay, fmaxf(by, cy));
+    for (float y = min_y; y <= max_y; y += 1.0f) {
+        float xs[3];
+        int count = 0;
+        float px[3] = {ax, bx, cx};
+        float py[3] = {ay, by, cy};
+        for (int i = 0; i < 3; i++) {
+            int j = (i + 1) % 3;
+            if ((py[i] <= y && py[j] > y) || (py[j] <= y && py[i] > y)) {
+                float t = (y - py[i]) / (py[j] - py[i]);
+                xs[count++] = px[i] + t * (px[j] - px[i]);
+            }
+        }
+        if (count == 2) {
+            if (xs[0] > xs[1]) { float tmp = xs[0]; xs[0] = xs[1]; xs[1] = tmp; }
+            SDL_RenderLine(r, xs[0], y, xs[1], y);
+        }
     }
 }
 
@@ -41,32 +96,31 @@ static void draw_health_bar(SDL_Renderer *r, float x, float y, float w, float hp
     float pct = hp / max_hp;
     if (pct > 1.0f) pct = 1.0f;
     if (pct < 0.0f) pct = 0.0f;
-    SDL_SetRenderDrawColor(r, 30, 30, 30, 200);
+    SDL_SetRenderDrawColor(r, 31, 24, 47, 255);
     SDL_FRect shadow = {x - w/2 + 1, y + 1, w, 5};
     SDL_RenderFillRect(r, &shadow);
-    SDL_SetRenderDrawColor(r, 50, 50, 50, 255);
+    SDL_SetRenderDrawColor(r, 42, 48, 74, 255);
     SDL_FRect bg = {x - w/2, y, w, 5};
     SDL_RenderFillRect(r, &bg);
-    SDL_SetRenderDrawColor(r, 70, 70, 70, 255);
+    SDL_SetRenderDrawColor(r, 117, 113, 143, 255);
     SDL_FRect top_edge = {x - w/2, y, w, 1};
     SDL_RenderFillRect(r, &top_edge);
-    Uint8 cr = (Uint8)(255 * (1.0f - pct));
-    Uint8 cg = (Uint8)(255 * pct);
-    SDL_SetRenderDrawColor(r, cr, cg, 0, 255);
+    Uint8 cr = pct > 0.4f ? 229 : 204;
+    Uint8 cg = pct > 0.4f ? 174 : 73;
+    Uint8 cb = pct > 0.4f ? 58 : 118;
+    SDL_SetRenderDrawColor(r, cr, cg, cb, 255);
     SDL_FRect fill = {x - w/2, y + 1, w * pct, 3};
     SDL_RenderFillRect(r, &fill);
-    SDL_SetRenderDrawColor(r, (Uint8)(cr * 0.5f), (Uint8)(cg * 0.5f), 0, 255);
+    SDL_SetRenderDrawColor(r, 31, 24, 47, 255);
     SDL_FRect bot = {x - w/2, y + 4, w * pct, 1};
     SDL_RenderFillRect(r, &bot);
-    Uint8 hr = (Uint8)(cr + (255 - cr) * 0.4f);
-    Uint8 hg = (Uint8)(cg + (255 - cg) * 0.4f);
-    SDL_SetRenderDrawColor(r, hr, hg, 0, 180);
+    SDL_SetRenderDrawColor(r, 241, 232, 154, 255);
     SDL_FRect highlight = {x - w/2, y + 1, w * pct, 1};
     SDL_RenderFillRect(r, &highlight);
 }
 
 static void draw_die_dots(SDL_Renderer *r, float cx, float cy, float size, int face) {
-    SDL_SetRenderDrawColor(r, 40, 40, 40, 255);
+    SDL_SetRenderDrawColor(r, 31, 24, 47, 255);
     float dr = size * 0.1f, off = size * 0.25f;
     if (face == 1 || face == 3 || face == 5) draw_filled_circle(r, cx, cy, dr);
     if (face >= 2) { draw_filled_circle(r, cx+off, cy-off, dr); draw_filled_circle(r, cx-off, cy+off, dr); }
@@ -75,64 +129,96 @@ static void draw_die_dots(SDL_Renderer *r, float cx, float cy, float size, int f
 }
 
 static void draw_die(SDL_Renderer *r, Dice *d) {
-    float size = 50, half = 25;
-    float bevel = 3.0f;
+    float size = 52, half = 26;
+    float ox = 0, oy = 0, grow = 0;
 
-    SDL_SetRenderDrawColor(r, 0, 0, 0, 40);
-    SDL_FRect drop_shadow = {d->x - half + 3, d->y - half + 4, size, size};
-    SDL_RenderFillRect(r, &drop_shadow);
-    SDL_SetRenderDrawColor(r, 0, 0, 0, 20);
-    SDL_FRect drop_shadow2 = {d->x - half + 5, d->y - half + 6, size, size};
-    SDL_RenderFillRect(r, &drop_shadow2);
-
-    if (d->state == DICE_COOLDOWN_STATE) {
-        SDL_SetRenderDrawColor(r, 80, 72, 65, 255);
-    } else {
-        SDL_SetRenderDrawColor(r, 120, 100, 60, 255);
+    if (d->state == DICE_ROLLING) {
+        /* tumble jitter that eases out as it settles */
+        float k = 1.0f - d->roll_time / DICE_ROLL_TIME;
+        if (k < 0) k = 0;
+        float ph = d->anim_t * 40.0f;
+        ox = sinf(ph) * 5.0f * k;
+        oy = cosf(ph * 1.7f) * 4.0f * k;
+        grow = sinf(d->anim_t * 30.0f) * 3.0f * k;
     }
-    SDL_FRect bottom_face = {d->x - half, d->y - half + bevel, size, size};
-    SDL_RenderFillRect(r, &bottom_face);
 
-    Uint8 br, bg_c, bb;
-    if (d->state == DICE_COOLDOWN_STATE) { br = 100; bg_c = 90; bb = 80; }
-    else if (d->state == DICE_DRAGGING) { br = 255; bg_c = 250; bb = 235; }
-    else { br = 245; bg_c = 240; bb = 220; }
+    float cx = d->x + ox, cy = d->y + oy;
+    half += grow * 0.5f; size += grow;
+
+    SDL_SetRenderDrawColor(r, 20, 15, 32, 255);
+    SDL_FRect shadow = {cx - half + 5, cy - half + 7, size, size};
+    SDL_RenderFillRect(r, &shadow);
+
+    Uint8 br = 226, bg_c = 232, bb = 214;
+    if (d->state == DICE_COOLDOWN_STATE) { br = 92; bg_c = 103; bb = 132; }
+    else if (d->state == DICE_DRAGGING) { br = 70; bg_c = 79; bb = 120; }
+    else if (d->state == DICE_ROLLING) { br = 240; bg_c = 248; bb = 226; }
+
+    /* glow for a settled, draggable die */
+    if (d->state == DICE_ROLLED) {
+        float pulse = 0.5f + 0.5f * sinf(d->anim_t * 5.0f);
+        SDL_SetRenderDrawColor(r, 120, 239, 229, (Uint8)(70 + 90 * pulse));
+        SDL_FRect g = {cx - half - 5, cy - half - 5, size + 10, size + 10};
+        SDL_RenderFillRect(r, &g);
+    }
+
+    SDL_SetRenderDrawColor(r, 31, 24, 47, 255);
+    SDL_FRect outline = {cx - half - 3, cy - half - 3, size + 6, size + 6};
+    SDL_RenderFillRect(r, &outline);
     SDL_SetRenderDrawColor(r, br, bg_c, bb, 255);
-    SDL_FRect body = {d->x - half, d->y - half, size, size};
+    SDL_FRect body = {cx - half, cy - half, size, size};
     SDL_RenderFillRect(r, &body);
-
-    Uint8 hr = (Uint8)(br + (255 - br) * 0.3f);
-    Uint8 hg = (Uint8)(bg_c + (255 - bg_c) * 0.3f);
-    Uint8 hb = (Uint8)(bb + (255 - bb) * 0.3f);
-    SDL_SetRenderDrawColor(r, hr, hg, hb, 255);
-    SDL_FRect top_edge = {d->x - half, d->y - half, size, bevel};
-    SDL_RenderFillRect(r, &top_edge);
-    SDL_FRect left_edge = {d->x - half, d->y - half, bevel, size};
-    SDL_RenderFillRect(r, &left_edge);
-
-    SDL_SetRenderDrawColor(r, (Uint8)(br * 0.7f), (Uint8)(bg_c * 0.7f), (Uint8)(bb * 0.7f), 255);
-    SDL_FRect bot_edge = {d->x - half, d->y + half - bevel, size, bevel};
-    SDL_RenderFillRect(r, &bot_edge);
-    SDL_FRect right_edge = {d->x + half - bevel, d->y - half, bevel, size};
-    SDL_RenderFillRect(r, &right_edge);
-
-    SDL_SetRenderDrawColor(r, d->state == DICE_READY ? 180 : 70, d->state == DICE_READY ? 160 : 60, d->state == DICE_READY ? 80 : 50, 255);
+    SDL_SetRenderDrawColor(r, 70, 79, 120, 255);
     SDL_RenderRect(r, &body);
+    draw_pixel_speckles(r, (int)body.x + 4, (int)body.y + 4, (int)body.w - 8, (int)body.h - 8, 31, 24, 47, 38, d->face * 17);
 
-    if (d->state != DICE_COOLDOWN_STATE) {
-        draw_die_dots(r, d->x, d->y, size, d->face);
-    } else {
+    if (d->state == DICE_READY) {
+        /* "tap to roll": pulsing ring + neutral mark, face hidden */
+        float pulse = 0.5f + 0.5f * sinf(d->anim_t * 4.0f);
+        SDL_SetRenderDrawColor(r, 120, 239, 229, (Uint8)(120 + 110 * pulse));
+        SDL_FRect ring = {cx - half + 4, cy - half + 4, size - 8, size - 8};
+        SDL_RenderRect(r, &ring);
+        SDL_SetRenderDrawColor(r, 64, 98, 135, 255);
+        draw_filled_circle(r, cx, cy, 4 + 2 * pulse);
+    } else if (d->state == DICE_COOLDOWN_STATE) {
         float pct = d->cooldown_timer / DICE_COOLDOWN;
-        SDL_SetRenderDrawColor(r, 60, 55, 45, 200);
-        SDL_FRect cd_bg = {d->x - half + 5, d->y + half - 12, size - 10, 7};
+        SDL_SetRenderDrawColor(r, 31, 24, 47, 255);
+        SDL_FRect cd_bg = {cx - half + 5, cy + half - 12, size - 10, 7};
         SDL_RenderFillRect(r, &cd_bg);
-        SDL_SetRenderDrawColor(r, 180, 160, 120, 255);
-        SDL_FRect cd = {d->x - half + 5, d->y + half - 12, (size - 10) * (1.0f - pct), 7};
+        SDL_SetRenderDrawColor(r, 120, 239, 229, 255);
+        SDL_FRect cd = {cx - half + 5, cy + half - 12, (size - 10) * (1.0f - pct), 7};
         SDL_RenderFillRect(r, &cd);
-        SDL_SetRenderDrawColor(r, 220, 200, 160, 180);
-        SDL_FRect cd_hi = {d->x - half + 5, d->y + half - 12, (size - 10) * (1.0f - pct), 2};
+        SDL_SetRenderDrawColor(r, 226, 232, 214, 255);
+        SDL_FRect cd_hi = {cx - half + 5, cy + half - 12, (size - 10) * (1.0f - pct), 2};
         SDL_RenderFillRect(r, &cd_hi);
+    } else {
+        draw_die_dots(r, cx, cy, size, d->face);
     }
+}
+
+/* translucent "light" character that has been rolled but not yet placed */
+static void draw_unit_token(SDL_Renderer *r, SDL_Texture *atlas, int type,
+                            float cx, float cy, float scale, Uint8 alpha, float t) {
+    if (type < 1 || type > 6) return;
+    SDL_FRect src = sprite_unit_src(type, ((int)(t * 6.0f)) & 1);
+    float s = 30.0f * scale;
+
+    float pulse = 0.5f + 0.5f * sinf(t * 4.0f);
+    SDL_SetRenderDrawColor(r, 120, 239, 229, (Uint8)(40 + 50 * pulse));
+    draw_filled_circle(r, cx, cy + s * 0.15f, s * 0.62f);
+    SDL_SetRenderDrawColor(r, 120, 239, 229, (Uint8)(70 + 60 * pulse));
+    draw_filled_circle(r, cx, cy + s * 0.5f, s * 0.42f);
+
+    SDL_FRect dst = {cx - s/2, cy - s/2, s, s};
+    SDL_SetTextureBlendMode(atlas, SDL_BLENDMODE_BLEND);
+    SDL_SetTextureColorMod(atlas, 120, 239, 229);
+    SDL_SetTextureAlphaMod(atlas, (Uint8)(alpha * 0.5f));
+    SDL_FRect aura = {dst.x - 2, dst.y - 2, dst.w + 4, dst.h + 4};
+    SDL_RenderTexture(r, atlas, &src, &aura);
+    SDL_SetTextureColorMod(atlas, 255, 255, 255);
+    SDL_SetTextureAlphaMod(atlas, alpha);
+    SDL_RenderTexture(r, atlas, &src, &dst);
+    SDL_SetTextureAlphaMod(atlas, 255);
 }
 
 /* ---------- sprite rendering ---------- */
@@ -146,26 +232,29 @@ static void draw_sprite(SDL_Renderer *r, SDL_Texture *atlas,
     float dy = (base_size * ds - h) * 0.5f;
     SDL_FRect dst = {x - w/2 + lean_off, y - h/2 + dy + extra_y_off, w, h};
 
-    SDL_SetTextureColorMod(atlas, 0, 0, 0);
-    SDL_SetTextureAlphaMod(atlas, 50);
+    SDL_SetTextureColorMod(atlas, 20, 15, 32);
+    SDL_SetTextureAlphaMod(atlas, 145);
     SDL_SetTextureBlendMode(atlas, SDL_BLENDMODE_BLEND);
-    SDL_FRect shadow_dst = {dst.x + 2 * ds, dst.y + 2 * ds, dst.w, dst.h};
+    SDL_FRect shadow_dst = {floorf(dst.x + 3 * ds), floorf(dst.y + 4 * ds), floorf(dst.w), floorf(dst.h)};
     SDL_RenderTexture(r, atlas, &src, &shadow_dst);
 
     SDL_SetTextureColorMod(atlas, 255, 255, 255);
     SDL_SetTextureAlphaMod(atlas, 255);
+    dst.x = floorf(dst.x);
+    dst.y = floorf(dst.y);
+    dst.w = floorf(dst.w);
+    dst.h = floorf(dst.h);
     SDL_RenderTexture(r, atlas, &src, &dst);
 
-    Uint8 rim = (Uint8)(60 + 40 * ((y - FIELD_Y) / (float)FIELD_H));
-    SDL_SetTextureColorMod(atlas, 255, 255, rim > 200 ? 200 : rim + 140);
-    SDL_SetTextureAlphaMod(atlas, 35);
-    SDL_SetTextureBlendMode(atlas, SDL_BLENDMODE_ADD);
+    SDL_SetTextureColorMod(atlas, 120, 239, 229);
+    SDL_SetTextureAlphaMod(atlas, 28);
+    SDL_SetTextureBlendMode(atlas, SDL_BLENDMODE_BLEND);
     SDL_FRect highlight_dst = {dst.x - 1, dst.y - 1, dst.w, dst.h};
     SDL_RenderTexture(r, atlas, &src, &highlight_dst);
 
     if (anim->flash_active) {
         SDL_SetTextureColorMod(atlas, 255, 255, 255);
-        SDL_SetTextureAlphaMod(atlas, 200);
+        SDL_SetTextureAlphaMod(atlas, 220);
         SDL_RenderTexture(r, atlas, &src, &dst);
     }
 
@@ -179,8 +268,8 @@ static void draw_ground_shadow(SDL_Renderer *r, float x, float y, float w, float
     float hw = sw * 0.55f, hh = sw * 0.2f;
     for (int layer = 2; layer >= 0; layer--) {
         float mul = 1.0f + layer * 0.25f;
-        Uint8 a = (Uint8)(40 - layer * 12);
-        SDL_SetRenderDrawColor(r, 0, 0, 0, a);
+        Uint8 a = (Uint8)(135 - layer * 35);
+        SDL_SetRenderDrawColor(r, 20, 15, 32, a);
         float lhw = hw * mul, lhh = hh * mul;
         for (float dy = -lhh; dy <= lhh; dy += 1.0f) {
             float span = lhw * sqrtf(1.0f - (dy * dy) / (lhh * lhh));
@@ -191,26 +280,26 @@ static void draw_ground_shadow(SDL_Renderer *r, float x, float y, float w, float
 
 static void draw_unit_sprite(SDL_Renderer *r, SDL_Texture *atlas, Unit *u) {
     float ds = depth_scale(u->y);
-    draw_ground_shadow(r, u->x, u->y + 14 * ds, 28, ds);
+    draw_ground_shadow(r, u->x, u->y + 18 * ds, 32, ds);
     SDL_FRect src = sprite_unit_src(u->type, u->anim.frame);
-    draw_sprite(r, atlas, src, u->x, u->y, 36, &u->anim, 0, ds);
+    draw_sprite(r, atlas, src, u->x, u->y, 48, &u->anim, 0, ds);
     if (u->hp < u->max_hp)
-        draw_health_bar(r, u->x, u->y - 22 * ds, 30 * ds, u->hp, u->max_hp);
+        draw_health_bar(r, u->x, u->y - 28 * ds, 32 * ds, u->hp, u->max_hp);
 }
 
 static void draw_enemy_sprite(SDL_Renderer *r, SDL_Texture *atlas, Enemy *e) {
     float ds = depth_scale(e->y);
-    float base = (e->type == ENEMY_ASURA) ? 52.0f : 36.0f;
-    draw_ground_shadow(r, e->x, e->y + 14 * ds, base * 0.8f, ds);
+    float base = (e->type == ENEMY_ASURA) ? 68.0f : 46.0f;
+    draw_ground_shadow(r, e->x, e->y + 18 * ds, base * 0.7f, ds);
     SDL_FRect src = sprite_enemy_src(e->type, e->anim.frame);
     float walk_bob = sinf(e->walk_phase) * 2.0f * ds;
     draw_sprite(r, atlas, src, e->x, e->y, base, &e->anim, walk_bob, ds);
-    float bar_off = (e->type == ENEMY_ASURA) ? 30.0f : 22.0f;
-    draw_health_bar(r, e->x, e->y - bar_off * ds, 26 * ds, e->hp, e->max_hp);
+    float bar_off = (e->type == ENEMY_ASURA) ? 38.0f : 28.0f;
+    draw_health_bar(r, e->x, e->y - bar_off * ds, 28 * ds, e->hp, e->max_hp);
 }
 
 static void draw_ornament_line(SDL_Renderer *r, float cx, float y, float half_w) {
-    SDL_SetRenderDrawColor(r, 180, 140, 50, 180);
+    SDL_SetRenderDrawColor(r, 120, 239, 229, 255);
     SDL_RenderLine(r, cx - half_w, y, cx - 20, y);
     SDL_RenderLine(r, cx + 20, y, cx + half_w, y);
     draw_filled_circle(r, cx - half_w, y, 3);
@@ -218,22 +307,52 @@ static void draw_ornament_line(SDL_Renderer *r, float cx, float y, float half_w)
     draw_filled_circle(r, cx, y, 4);
 }
 
+static void draw_gothic_backdrop(SDL_Renderer *r) {
+    draw_pixel_rect(r, 0, 0, VIRTUAL_W, VIRTUAL_H, 44, 25, 56, 255);
+    draw_pixel_rect(r, 0, 0, VIRTUAL_W, 98, 99, 31, 69, 255);
+    draw_pixel_speckles(r, 0, 0, VIRTUAL_W, 98, 226, 232, 214, 50, 29);
+
+    SDL_SetRenderDrawColor(r, 205, 217, 231, 255);
+    draw_filled_circle(r, VIRTUAL_W / 2.0f + 44, 44, 26);
+    SDL_SetRenderDrawColor(r, 99, 31, 69, 255);
+    draw_filled_circle(r, VIRTUAL_W / 2.0f + 54, 38, 24);
+
+    for (int i = -1; i < 7; i++) {
+        float x = i * 72.0f - 20.0f;
+        SDL_SetRenderDrawColor(r, 34, 33, 56, 255);
+        draw_triangle(r, x, 105, x + 44, 42 + (i & 1) * 14, x + 92, 105);
+        SDL_SetRenderDrawColor(r, 64, 98, 135, 255);
+        draw_triangle(r, x + 22, 105, x + 44, 42 + (i & 1) * 14, x + 92, 105);
+        SDL_SetRenderDrawColor(r, 24, 22, 39, 255);
+        SDL_RenderLine(r, x + 44, 42 + (i & 1) * 14, x + 52, 105);
+    }
+
+    draw_pixel_rect(r, 0, FIELD_Y + FIELD_H - 8, VIRTUAL_W, 58, 31, 24, 47, 255);
+    for (int x = 0; x < VIRTUAL_W; x += 42) {
+        draw_pixel_rect(r, x + 8, FIELD_Y + FIELD_H - 16, 24, 14, 31, 24, 47, 255);
+        draw_pixel_rect(r, x + 8, FIELD_Y + FIELD_H - 19, 24, 3, 64, 98, 135, 255);
+    }
+
+    draw_pixel_rect(r, -16, 64, 44, FIELD_H + 24, 34, 33, 56, 255);
+    draw_pixel_rect(r, 6, 86, 10, FIELD_H - 26, 64, 98, 135, 255);
+    for (int y = 72; y < FIELD_Y + FIELD_H; y += 34) {
+        draw_pixel_rect(r, 0, y, 24, 8, 64, 98, 135, 255);
+    }
+    draw_pixel_rect(r, VIRTUAL_W - 26, 100, 52, FIELD_H - 32, 34, 33, 56, 255);
+    draw_pixel_speckles(r, 0, 140, 30, FIELD_H - 70, 204, 73, 118, 100, 91);
+    draw_pixel_speckles(r, VIRTUAL_W - 28, 140, 28, FIELD_H - 70, 204, 73, 118, 95, 93);
+}
+
 /* ---------- screen renders ---------- */
 
 static void render_splash(Game *game) {
     SDL_Renderer *r = game->renderer;
-    SDL_SetRenderDrawColor(r, 10, 8, 18, 255);
-    SDL_RenderClear(r);
-
+    draw_gothic_backdrop(r);
     Uint8 alpha = (Uint8)(255 * game->splash_fade);
 
-    SDL_SetRenderDrawColor(r, 180, 50, 50, (Uint8)(alpha * 0.15f));
-    for (int i = 0; i < 3; i++) {
-        float radius = 60.0f + i * 40.0f + sinf(game->splash_timer * 1.5f + i) * 10.0f;
-        draw_filled_circle(r, VIRTUAL_W / 2.0f, 280, radius);
-    }
-
-    SDL_SetRenderDrawColor(r, 255, 200, 50, alpha);
+    SDL_SetRenderDrawColor(r, 120, 239, 229, (Uint8)(alpha * 0.2f));
+    draw_filled_circle(r, VIRTUAL_W / 2.0f, 270, 94 + sinf(game->splash_timer) * 4);
+    SDL_SetRenderDrawColor(r, 226, 232, 214, alpha);
     SDL_SetRenderScale(r, 5.0f, 5.0f);
     float tw1 = 7 * 8;
     SDL_RenderDebugText(r, (VIRTUAL_W / 5.0f - tw1) / 2, 52, "MAAYAVI");
@@ -241,7 +360,7 @@ static void render_splash(Game *game) {
 
     draw_ornament_line(r, VIRTUAL_W / 2.0f, 330, 120);
 
-    SDL_SetRenderDrawColor(r, 200, 180, 140, (Uint8)(alpha * 0.8f));
+    SDL_SetRenderDrawColor(r, 120, 239, 229, (Uint8)(alpha * 0.9f));
     SDL_SetRenderScale(r, 2.0f, 2.0f);
     float tw3 = 17 * 8;
     SDL_RenderDebugText(r, (VIRTUAL_W / 2.0f - tw3) / 2, 200, "Dice Lane Defense");
@@ -251,10 +370,10 @@ static void render_splash(Game *game) {
     int die_face = ((int)(game->splash_timer * 3.0f) % 6) + 1;
     float die_rot = sinf(game->splash_timer * 2.0f) * 0.05f;
     float die_sz = 60 + die_rot * 100;
-    SDL_SetRenderDrawColor(r, 245, 240, 220, alpha);
+    SDL_SetRenderDrawColor(r, 226, 232, 214, alpha);
     SDL_FRect die = {die_x - die_sz/2, die_y - die_sz/2, die_sz, die_sz};
     SDL_RenderFillRect(r, &die);
-    SDL_SetRenderDrawColor(r, 200, 180, 100, alpha);
+    SDL_SetRenderDrawColor(r, 31, 24, 47, alpha);
     SDL_RenderRect(r, &die);
     if (alpha > 128) draw_die_dots(r, die_x, die_y, die_sz, die_face);
 
@@ -262,7 +381,7 @@ static void render_splash(Game *game) {
         Uint64 t = SDL_GetTicks();
         float pulse = 0.5f + 0.5f * sinf((float)t * 0.004f);
         Uint8 v = (Uint8)(180 * pulse * game->splash_fade);
-        SDL_SetRenderDrawColor(r, v, v, v, 255);
+        SDL_SetRenderDrawColor(r, clamp_u8(v + 60), clamp_u8(v + 70), clamp_u8(v + 30), 255);
         SDL_SetRenderScale(r, 1.5f, 1.5f);
         float tw4 = 16 * 8;
         SDL_RenderDebugText(r, (VIRTUAL_W / 1.5f - tw4) / 2, 410, "TAP TO CONTINUE");
@@ -274,74 +393,58 @@ static void render_playing(Game *game) {
     SDL_Renderer *r = game->renderer;
     float sx = game->shake_x, sy = game->shake_y;
 
-    SDL_SetRenderDrawColor(r, 25, 28, 20, 255);
-    SDL_RenderClear(r);
+    draw_gothic_backdrop(r);
 
-    /* lanes with depth gradient */
+    /* checkerboard graveyard lanes */
+    draw_pixel_rect(r, sx, FIELD_Y + sy, VIRTUAL_W, FIELD_H, 6, 116, 83, 255);
     for (int i = 0; i < NUM_LANES; i++) {
-        int band_h = 8;
-        for (int row = 0; row < FIELD_H; row += band_h) {
-            float t = (float)row / (float)FIELD_H;
-            int base_r = (i % 2 == 0) ? 32 : 38;
-            int base_g = (i % 2 == 0) ? 48 : 54;
-            int base_b = (i % 2 == 0) ? 28 : 32;
-            Uint8 lr = (Uint8)(base_r + (int)(t * 14));
-            Uint8 lg = (Uint8)(base_g + (int)(t * 18));
-            Uint8 lb = (Uint8)(base_b + (int)(t * 10));
-            SDL_SetRenderDrawColor(r, lr, lg, lb, 255);
-            float actual_h = (float)band_h;
-            if (row + band_h > FIELD_H) actual_h = (float)(FIELD_H - row);
-            SDL_FRect band = {i * LANE_W + sx, FIELD_Y + row + sy, (float)LANE_W, actual_h};
-            SDL_RenderFillRect(r, &band);
+        for (int row = 0; row < 5; row++) {
+            float pad = 8.0f;
+            float cell_x = i * LANE_W + pad + sx;
+            float cell_y = FIELD_Y + 17.0f + row * 82.0f + sy;
+            Uint8 shade = ((i + row) & 1) ? 78 : 86;
+            draw_pixel_rect(r, cell_x, cell_y, LANE_W - pad * 2, 58, shade, 137, 108, 220);
+            draw_pixel_rect(r, cell_x, cell_y, LANE_W - pad * 2, 3, 105, 164, 132, 230);
+            draw_pixel_speckles(r, (int)cell_x + 2, (int)cell_y + 4, (int)(LANE_W - pad * 2 - 4), 50, 133, 186, 144, 40, i * 13 + row * 31);
         }
     }
+    draw_pixel_speckles(r, 34, FIELD_Y + 12, VIRTUAL_W - 68, FIELD_H - 34, 113, 174, 139, 88, 37);
 
     /* lane highlight */
     if (game->dragging_dice >= 0 && game->drag_y >= FIELD_Y && game->drag_y <= FIELD_Y + FIELD_H) {
         int hl = (int)(game->drag_x / LANE_W);
         if (hl >= 0 && hl < NUM_LANES) {
-            SDL_SetRenderDrawColor(r, 255, 255, 200, 20);
-            SDL_FRect h = {hl * LANE_W + sx, FIELD_Y + sy, (float)LANE_W, (float)FIELD_H};
-            SDL_RenderFillRect(r, &h);
-            SDL_SetRenderDrawColor(r, 255, 220, 100, 40);
-            SDL_FRect h2 = {hl * LANE_W + sx + 1, FIELD_Y + sy, (float)LANE_W - 2, (float)FIELD_H};
+            draw_pixel_rect(r, hl * LANE_W + sx + 3, FIELD_Y + sy, LANE_W - 6, FIELD_H, 120, 239, 229, 38);
+            SDL_SetRenderDrawColor(r, 120, 239, 229, 210);
+            SDL_FRect h2 = {hl * LANE_W + sx + 4, FIELD_Y + sy + 4, (float)LANE_W - 8, (float)FIELD_H - 8};
             SDL_RenderRect(r, &h2);
         }
     }
 
-    /* lane dividers with groove effect */
+    /* lane dividers */
     for (int i = 1; i < NUM_LANES; i++) {
         float lx = i * LANE_W + sx;
-        SDL_SetRenderDrawColor(r, 20, 25, 15, 255);
+        SDL_SetRenderDrawColor(r, 0, 80, 65, 190);
         SDL_RenderLine(r, lx - 1, FIELD_Y + sy, lx - 1, FIELD_Y + FIELD_H + sy);
-        SDL_SetRenderDrawColor(r, 55, 65, 45, 255);
+        SDL_SetRenderDrawColor(r, 34, 141, 101, 140);
         SDL_RenderLine(r, lx, FIELD_Y + sy, lx, FIELD_Y + FIELD_H + sy);
-        SDL_SetRenderDrawColor(r, 70, 85, 55, 200);
-        SDL_RenderLine(r, lx + 1, FIELD_Y + sy, lx + 1, FIELD_Y + FIELD_H + sy);
     }
 
-    /* field border with depth */
-    SDL_SetRenderDrawColor(r, 90, 100, 65, 255);
+    SDL_SetRenderDrawColor(r, 31, 24, 47, 255);
     SDL_FRect fb = {sx, FIELD_Y + sy, (float)VIRTUAL_W, (float)FIELD_H};
     SDL_RenderRect(r, &fb);
-    SDL_SetRenderDrawColor(r, 60, 70, 45, 255);
+    SDL_SetRenderDrawColor(r, 64, 98, 135, 255);
     SDL_FRect fb2 = {sx + 1, FIELD_Y + sy + 1, (float)VIRTUAL_W - 2, (float)FIELD_H - 2};
     SDL_RenderRect(r, &fb2);
-
-    /* depth fog at top of field */
-    for (int row = 0; row < 40; row++) {
-        Uint8 a = (Uint8)(35 - row * 35 / 40);
-        SDL_SetRenderDrawColor(r, 15, 12, 25, a);
-        SDL_FRect fog = {sx, FIELD_Y + row + sy, (float)VIRTUAL_W, 1};
-        SDL_RenderFillRect(r, &fog);
-    }
 
     /* blood decals */
     for (int i = 0; i < MAX_DECALS; i++) {
         Decal *d = &game->decals[i];
         if (d->a == 0) continue;
-        SDL_SetRenderDrawColor(r, d->r, d->g, d->b, d->a);
+        SDL_SetRenderDrawColor(r, 204, 0, 83, d->a);
         draw_filled_circle(r, d->x + sx, d->y + sy, d->size);
+        SDL_SetRenderDrawColor(r, 99, 31, 69, d->a);
+        draw_filled_circle(r, d->x + sx + 1, d->y + sy + 1, d->size * 0.45f);
     }
 
     /* projectiles */
@@ -352,24 +455,11 @@ static void render_playing(Game *game) {
         if (st < 0 || st > 6) st = 0;
         float ds = depth_scale(p->y);
         float px = p->x + sx, py = p->y + sy;
-        /* outer glow */
-        SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_ADD);
-        SDL_SetRenderDrawColor(r, PROJ_COLORS[st].r, PROJ_COLORS[st].g, PROJ_COLORS[st].b, 30);
-        draw_filled_circle(r, px, py, 10 * ds);
-        SDL_SetRenderDrawColor(r, PROJ_COLORS[st].r, PROJ_COLORS[st].g, PROJ_COLORS[st].b, 60);
-        draw_filled_circle(r, px, py, 6 * ds);
-        SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
-        /* core */
-        SDL_SetRenderDrawColor(r, PROJ_COLORS[st].r, PROJ_COLORS[st].g, PROJ_COLORS[st].b, 255);
-        draw_filled_circle(r, px, py, 4 * ds);
-        SDL_SetRenderDrawColor(r, 255, 255, 255, 200);
-        draw_filled_circle(r, px - 1, py - 1, 2 * ds);
-        /* trail */
-        SDL_SetRenderDrawColor(r, PROJ_COLORS[st].r, PROJ_COLORS[st].g, PROJ_COLORS[st].b, 120);
-        draw_filled_circle(r, px, py + 5 * ds, 3 * ds);
-        SDL_SetRenderDrawColor(r, PROJ_COLORS[st].r, PROJ_COLORS[st].g, PROJ_COLORS[st].b, 60);
-        draw_filled_circle(r, px, py + 10 * ds, 2 * ds);
-        draw_filled_circle(r, px, py + 14 * ds, 1.5f * ds);
+        draw_pixel_rect(r, floorf(px - 3 * ds), floorf(py - 3 * ds), 7 * ds, 7 * ds, 31, 24, 47, 255);
+        draw_pixel_rect(r, floorf(px - 2 * ds), floorf(py - 2 * ds), 5 * ds, 5 * ds,
+                        PROJ_COLORS[st].r, PROJ_COLORS[st].g, PROJ_COLORS[st].b, 255);
+        draw_pixel_rect(r, floorf(px - 1 * ds), floorf(py - 8 * ds), 2 * ds, 4 * ds,
+                        PROJ_COLORS[st].r, PROJ_COLORS[st].g, PROJ_COLORS[st].b, 150);
     }
 
     /* enemies */
@@ -402,11 +492,11 @@ static void render_playing(Game *game) {
 
         switch (p->ptype) {
         case PTYPE_CIRCLE:
-            SDL_SetRenderDrawColor(r, p->r, p->g, p->b, (Uint8)(255*alpha));
-            draw_filled_circle(r, px, py, p->size * alpha);
+            SDL_SetRenderDrawColor(r, p->r, p->g, p->b, (Uint8)(220*alpha));
+            draw_pixel_rect(r, floorf(px), floorf(py), floorf(p->size), floorf(p->size), p->r, p->g, p->b, (Uint8)(220*alpha));
             break;
         case PTYPE_BLOOD_DROP: {
-            SDL_SetRenderDrawColor(r, p->r, p->g, p->b, (Uint8)(220*alpha));
+            SDL_SetRenderDrawColor(r, 204, 0, 83, (Uint8)(235*alpha));
             float sz = p->size;
             float cs = cosf(p->rotation), sn = sinf(p->rotation);
             float hw = sz * 2, hh = sz;
@@ -416,12 +506,10 @@ static void render_playing(Game *game) {
             break;
         }
         case PTYPE_SPARK:
-            SDL_SetRenderDrawColor(r, p->r, p->g, p->b, (Uint8)(255*alpha));
-            draw_filled_circle(r, px, py, p->size);
+            draw_pixel_rect(r, floorf(px), floorf(py), 3, 3, p->r, p->g, p->b, (Uint8)(235*alpha));
             break;
         case PTYPE_SMOKE:
-            SDL_SetRenderDrawColor(r, p->r, p->g, p->b, (Uint8)(80*alpha));
-            draw_filled_circle(r, px, py, p->size);
+            draw_pixel_rect(r, floorf(px), floorf(py), p->size + 3, p->size + 2, 64, 98, 135, (Uint8)(90*alpha));
             break;
         }
     }
@@ -435,49 +523,43 @@ static void render_playing(Game *game) {
         SDL_RenderFillRect(r, &full);
     }
 
-    /* tray with depth gradient */
-    for (int row = 0; row < TRAY_H; row++) {
-        float t = (float)row / (float)TRAY_H;
-        Uint8 tr = (Uint8)(55 - (int)(t * 18));
-        Uint8 tg = (Uint8)(38 - (int)(t * 12));
-        Uint8 tb = (Uint8)(28 - (int)(t * 10));
-        SDL_SetRenderDrawColor(r, tr, tg, tb, 255);
-        SDL_FRect tray_line = {0, (float)(TRAY_Y + row), (float)VIRTUAL_W, 1};
-        SDL_RenderFillRect(r, &tray_line);
-    }
-    SDL_SetRenderDrawColor(r, 100, 80, 55, 255);
+    /* card tray */
+    draw_pixel_rect(r, 0, TRAY_Y, VIRTUAL_W, TRAY_H, 31, 24, 47, 255);
+    draw_pixel_speckles(r, 0, TRAY_Y + 8, VIRTUAL_W, TRAY_H - 16, 64, 98, 135, 48, 77);
+    SDL_SetRenderDrawColor(r, 64, 98, 135, 255);
     SDL_RenderLine(r, 0, (float)TRAY_Y, (float)VIRTUAL_W, (float)TRAY_Y);
-    SDL_SetRenderDrawColor(r, 80, 60, 40, 255);
+    SDL_SetRenderDrawColor(r, 20, 15, 32, 255);
     SDL_RenderLine(r, 0, TRAY_Y + 1.0f, (float)VIRTUAL_W, TRAY_Y + 1.0f);
-    SDL_SetRenderDrawColor(r, 35, 25, 18, 255);
-    SDL_RenderLine(r, 0, TRAY_Y + 2.0f, (float)VIRTUAL_W, TRAY_Y + 2.0f);
 
-    /* dice */
-    for (int i = 0; i < MAX_DICE; i++) {
-        if (i == game->dragging_dice) continue;
+    /* dice tray */
+    for (int i = 0; i < MAX_DICE; i++)
         draw_die(r, &game->dice[i]);
-    }
-    if (game->dragging_dice >= 0)
-        draw_die(r, &game->dice[game->dragging_dice]);
 
-    /* HUD with gradient */
-    for (int row = 0; row < HUD_H; row++) {
-        float t = (float)row / (float)HUD_H;
-        Uint8 hr = (Uint8)(25 - (int)(t * 8));
-        Uint8 hg = (Uint8)(18 - (int)(t * 6));
-        Uint8 hb = (Uint8)(38 - (int)(t * 12));
-        SDL_SetRenderDrawColor(r, hr, hg, hb, 230);
-        SDL_FRect hud_line = {0, (float)row, (float)VIRTUAL_W, 1};
-        SDL_RenderFillRect(r, &hud_line);
+    /* rolled-but-unplaced character hovers above its die */
+    for (int i = 0; i < MAX_DICE; i++) {
+        Dice *d = &game->dice[i];
+        if (d->state == DICE_ROLLED && i != game->dragging_dice) {
+            float bob = sinf(d->anim_t * 3.5f) * 4.0f;
+            draw_unit_token(r, game->sprite_atlas, d->face,
+                            d->home_x, d->home_y - 42 + bob, 1.0f, 175, d->anim_t);
+        }
     }
-    SDL_SetRenderDrawColor(r, 80, 65, 45, 200);
+
+    /* the rolled character in hand follows the cursor */
+    if (game->dragging_dice >= 0) {
+        Dice *d = &game->dice[game->dragging_dice];
+        draw_unit_token(r, game->sprite_atlas, d->face,
+                        game->drag_x, game->drag_y, 1.4f, 235, d->anim_t);
+    }
+
+    /* HUD */
+    draw_pixel_rect(r, 0, 0, VIRTUAL_W, HUD_H, 31, 24, 47, 245);
+    SDL_SetRenderDrawColor(r, 64, 98, 135, 255);
     SDL_RenderLine(r, 0, (float)HUD_H - 1, (float)VIRTUAL_W, (float)HUD_H - 1);
-    SDL_SetRenderDrawColor(r, 40, 30, 20, 200);
-    SDL_RenderLine(r, 0, (float)HUD_H, (float)VIRTUAL_W, (float)HUD_H);
 
     char buf[64];
     SDL_SetRenderScale(r, 1.5f, 1.5f);
-    SDL_SetRenderDrawColor(r, 255, 255, 255, 255);
+    SDL_SetRenderDrawColor(r, 226, 232, 214, 255);
     if (game->wave > 0) SDL_snprintf(buf, sizeof(buf), "Wave %d", game->wave);
     else SDL_snprintf(buf, sizeof(buf), "Get Ready!");
     SDL_RenderDebugText(r, 6, 8, buf);
@@ -485,7 +567,7 @@ static void render_playing(Game *game) {
     SDL_snprintf(buf, sizeof(buf), "Score %d", game->score);
     SDL_RenderDebugText(r, VIRTUAL_W/1.5f/2 - 30, 8, buf);
 
-    SDL_SetRenderDrawColor(r, 255, 80, 80, 255);
+    SDL_SetRenderDrawColor(r, 229, 174, 58, 255);
     SDL_snprintf(buf, sizeof(buf), "HP %d", game->player_hp);
     SDL_RenderDebugText(r, VIRTUAL_W/1.5f - 50, 8, buf);
     SDL_SetRenderScale(r, 1, 1);
@@ -497,10 +579,10 @@ static void render_playing(Game *game) {
         if (game->wave_banner_timer > 1.5f) ba = (2.0f - game->wave_banner_timer) / 0.5f;
         if (ba < 0) ba = 0;
         if (ba > 1) ba = 1;
-        SDL_SetRenderDrawColor(r, 0, 0, 0, (Uint8)(160*ba));
+        SDL_SetRenderDrawColor(r, 31, 24, 47, (Uint8)(210*ba));
         SDL_FRect banner = {0, VIRTUAL_H/2.0f - 30, (float)VIRTUAL_W, 60};
         SDL_RenderFillRect(r, &banner);
-        SDL_SetRenderDrawColor(r, 255, 220, 50, (Uint8)(255*ba));
+        SDL_SetRenderDrawColor(r, 120, 239, 229, (Uint8)(255*ba));
         SDL_SetRenderScale(r, 3.0f, 3.0f);
         SDL_snprintf(buf, sizeof(buf), "WAVE %d", game->wave_banner_number);
         float tw = (float)SDL_strlen(buf) * 8;
@@ -508,7 +590,7 @@ static void render_playing(Game *game) {
         SDL_SetRenderScale(r, 1, 1);
     }
 
-    /* unit label while dragging */
+    /* unit label while dragging the rolled character */
     if (game->dragging_dice >= 0) {
         Dice *d = &game->dice[game->dragging_dice];
         const char *names[] = {"", "SPEAR", "ARCHER", "KNIGHT", "CAMEL", "SAGE", "ELEPHANT"};
@@ -517,7 +599,7 @@ static void render_playing(Game *game) {
             SDL_SetRenderDrawColor(r, UNIT_COLORS[face].r, UNIT_COLORS[face].g, UNIT_COLORS[face].b, 255);
             SDL_SetRenderScale(r, 1.5f, 1.5f);
             float tw = (float)SDL_strlen(names[face]) * 8;
-            SDL_RenderDebugText(r, d->x/1.5f - tw/2, (d->y - 40)/1.5f, names[face]);
+            SDL_RenderDebugText(r, game->drag_x/1.5f - tw/2, (game->drag_y - 52)/1.5f, names[face]);
             SDL_SetRenderScale(r, 1, 1);
         }
     }
@@ -530,21 +612,18 @@ void render_game(Game *game) {
         render_splash(game);
         break;
     case STATE_MENU:
-        SDL_SetRenderDrawColor(game->renderer, 18, 14, 28, 255);
-        SDL_RenderClear(game->renderer);
+        draw_gothic_backdrop(game->renderer);
         ui_render_menu(game);
         break;
     case STATE_SETTINGS:
-        SDL_SetRenderDrawColor(game->renderer, 18, 14, 28, 255);
-        SDL_RenderClear(game->renderer);
+        draw_gothic_backdrop(game->renderer);
         ui_render_settings(game);
         break;
     case STATE_PLAYING:
         render_playing(game);
         break;
     case STATE_GAME_OVER:
-        SDL_SetRenderDrawColor(game->renderer, 15, 10, 20, 255);
-        SDL_RenderClear(game->renderer);
+        draw_gothic_backdrop(game->renderer);
         ui_render_game_over(game);
         break;
     }
