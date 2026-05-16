@@ -130,37 +130,95 @@ static void draw_die_dots(SDL_Renderer *r, float cx, float cy, float size, int f
 
 static void draw_die(SDL_Renderer *r, Dice *d) {
     float size = 52, half = 26;
+    float ox = 0, oy = 0, grow = 0;
+
+    if (d->state == DICE_ROLLING) {
+        /* tumble jitter that eases out as it settles */
+        float k = 1.0f - d->roll_time / DICE_ROLL_TIME;
+        if (k < 0) k = 0;
+        float ph = d->anim_t * 40.0f;
+        ox = sinf(ph) * 5.0f * k;
+        oy = cosf(ph * 1.7f) * 4.0f * k;
+        grow = sinf(d->anim_t * 30.0f) * 3.0f * k;
+    }
+
+    float cx = d->x + ox, cy = d->y + oy;
+    half += grow * 0.5f; size += grow;
+
     SDL_SetRenderDrawColor(r, 20, 15, 32, 255);
-    SDL_FRect shadow = {d->x - half + 5, d->y - half + 7, size, size};
+    SDL_FRect shadow = {cx - half + 5, cy - half + 7, size, size};
     SDL_RenderFillRect(r, &shadow);
 
     Uint8 br = 226, bg_c = 232, bb = 214;
     if (d->state == DICE_COOLDOWN_STATE) { br = 92; bg_c = 103; bb = 132; }
-    else if (d->state == DICE_DRAGGING) { br = 120; bg_c = 239; bb = 229; }
+    else if (d->state == DICE_DRAGGING) { br = 70; bg_c = 79; bb = 120; }
+    else if (d->state == DICE_ROLLING) { br = 240; bg_c = 248; bb = 226; }
+
+    /* glow for a settled, draggable die */
+    if (d->state == DICE_ROLLED) {
+        float pulse = 0.5f + 0.5f * sinf(d->anim_t * 5.0f);
+        SDL_SetRenderDrawColor(r, 120, 239, 229, (Uint8)(70 + 90 * pulse));
+        SDL_FRect g = {cx - half - 5, cy - half - 5, size + 10, size + 10};
+        SDL_RenderFillRect(r, &g);
+    }
+
     SDL_SetRenderDrawColor(r, 31, 24, 47, 255);
-    SDL_FRect outline = {d->x - half - 3, d->y - half - 3, size + 6, size + 6};
+    SDL_FRect outline = {cx - half - 3, cy - half - 3, size + 6, size + 6};
     SDL_RenderFillRect(r, &outline);
     SDL_SetRenderDrawColor(r, br, bg_c, bb, 255);
-    SDL_FRect body = {d->x - half, d->y - half, size, size};
+    SDL_FRect body = {cx - half, cy - half, size, size};
     SDL_RenderFillRect(r, &body);
     SDL_SetRenderDrawColor(r, 70, 79, 120, 255);
     SDL_RenderRect(r, &body);
     draw_pixel_speckles(r, (int)body.x + 4, (int)body.y + 4, (int)body.w - 8, (int)body.h - 8, 31, 24, 47, 38, d->face * 17);
 
-    if (d->state != DICE_COOLDOWN_STATE) {
-        draw_die_dots(r, d->x, d->y, size, d->face);
-    } else {
+    if (d->state == DICE_READY) {
+        /* "tap to roll": pulsing ring + neutral mark, face hidden */
+        float pulse = 0.5f + 0.5f * sinf(d->anim_t * 4.0f);
+        SDL_SetRenderDrawColor(r, 120, 239, 229, (Uint8)(120 + 110 * pulse));
+        SDL_FRect ring = {cx - half + 4, cy - half + 4, size - 8, size - 8};
+        SDL_RenderRect(r, &ring);
+        SDL_SetRenderDrawColor(r, 64, 98, 135, 255);
+        draw_filled_circle(r, cx, cy, 4 + 2 * pulse);
+    } else if (d->state == DICE_COOLDOWN_STATE) {
         float pct = d->cooldown_timer / DICE_COOLDOWN;
         SDL_SetRenderDrawColor(r, 31, 24, 47, 255);
-        SDL_FRect cd_bg = {d->x - half + 5, d->y + half - 12, size - 10, 7};
+        SDL_FRect cd_bg = {cx - half + 5, cy + half - 12, size - 10, 7};
         SDL_RenderFillRect(r, &cd_bg);
         SDL_SetRenderDrawColor(r, 120, 239, 229, 255);
-        SDL_FRect cd = {d->x - half + 5, d->y + half - 12, (size - 10) * (1.0f - pct), 7};
+        SDL_FRect cd = {cx - half + 5, cy + half - 12, (size - 10) * (1.0f - pct), 7};
         SDL_RenderFillRect(r, &cd);
         SDL_SetRenderDrawColor(r, 226, 232, 214, 255);
-        SDL_FRect cd_hi = {d->x - half + 5, d->y + half - 12, (size - 10) * (1.0f - pct), 2};
+        SDL_FRect cd_hi = {cx - half + 5, cy + half - 12, (size - 10) * (1.0f - pct), 2};
         SDL_RenderFillRect(r, &cd_hi);
+    } else {
+        draw_die_dots(r, cx, cy, size, d->face);
     }
+}
+
+/* translucent "light" character that has been rolled but not yet placed */
+static void draw_unit_token(SDL_Renderer *r, SDL_Texture *atlas, int type,
+                            float cx, float cy, float scale, Uint8 alpha, float t) {
+    if (type < 1 || type > 6) return;
+    SDL_FRect src = sprite_unit_src(type, ((int)(t * 6.0f)) & 1);
+    float s = 30.0f * scale;
+
+    float pulse = 0.5f + 0.5f * sinf(t * 4.0f);
+    SDL_SetRenderDrawColor(r, 120, 239, 229, (Uint8)(40 + 50 * pulse));
+    draw_filled_circle(r, cx, cy + s * 0.15f, s * 0.62f);
+    SDL_SetRenderDrawColor(r, 120, 239, 229, (Uint8)(70 + 60 * pulse));
+    draw_filled_circle(r, cx, cy + s * 0.5f, s * 0.42f);
+
+    SDL_FRect dst = {cx - s/2, cy - s/2, s, s};
+    SDL_SetTextureBlendMode(atlas, SDL_BLENDMODE_BLEND);
+    SDL_SetTextureColorMod(atlas, 120, 239, 229);
+    SDL_SetTextureAlphaMod(atlas, (Uint8)(alpha * 0.5f));
+    SDL_FRect aura = {dst.x - 2, dst.y - 2, dst.w + 4, dst.h + 4};
+    SDL_RenderTexture(r, atlas, &src, &aura);
+    SDL_SetTextureColorMod(atlas, 255, 255, 255);
+    SDL_SetTextureAlphaMod(atlas, alpha);
+    SDL_RenderTexture(r, atlas, &src, &dst);
+    SDL_SetTextureAlphaMod(atlas, 255);
 }
 
 /* ---------- sprite rendering ---------- */
@@ -222,22 +280,22 @@ static void draw_ground_shadow(SDL_Renderer *r, float x, float y, float w, float
 
 static void draw_unit_sprite(SDL_Renderer *r, SDL_Texture *atlas, Unit *u) {
     float ds = depth_scale(u->y);
-    draw_ground_shadow(r, u->x, u->y + 14 * ds, 28, ds);
+    draw_ground_shadow(r, u->x, u->y + 18 * ds, 32, ds);
     SDL_FRect src = sprite_unit_src(u->type, u->anim.frame);
-    draw_sprite(r, atlas, src, u->x, u->y, 36, &u->anim, 0, ds);
+    draw_sprite(r, atlas, src, u->x, u->y, 48, &u->anim, 0, ds);
     if (u->hp < u->max_hp)
-        draw_health_bar(r, u->x, u->y - 22 * ds, 30 * ds, u->hp, u->max_hp);
+        draw_health_bar(r, u->x, u->y - 28 * ds, 32 * ds, u->hp, u->max_hp);
 }
 
 static void draw_enemy_sprite(SDL_Renderer *r, SDL_Texture *atlas, Enemy *e) {
     float ds = depth_scale(e->y);
-    float base = (e->type == ENEMY_ASURA) ? 52.0f : 36.0f;
-    draw_ground_shadow(r, e->x, e->y + 14 * ds, base * 0.8f, ds);
+    float base = (e->type == ENEMY_ASURA) ? 68.0f : 46.0f;
+    draw_ground_shadow(r, e->x, e->y + 18 * ds, base * 0.7f, ds);
     SDL_FRect src = sprite_enemy_src(e->type, e->anim.frame);
     float walk_bob = sinf(e->walk_phase) * 2.0f * ds;
     draw_sprite(r, atlas, src, e->x, e->y, base, &e->anim, walk_bob, ds);
-    float bar_off = (e->type == ENEMY_ASURA) ? 30.0f : 22.0f;
-    draw_health_bar(r, e->x, e->y - bar_off * ds, 26 * ds, e->hp, e->max_hp);
+    float bar_off = (e->type == ENEMY_ASURA) ? 38.0f : 28.0f;
+    draw_health_bar(r, e->x, e->y - bar_off * ds, 28 * ds, e->hp, e->max_hp);
 }
 
 static void draw_ornament_line(SDL_Renderer *r, float cx, float y, float half_w) {
@@ -473,13 +531,26 @@ static void render_playing(Game *game) {
     SDL_SetRenderDrawColor(r, 20, 15, 32, 255);
     SDL_RenderLine(r, 0, TRAY_Y + 1.0f, (float)VIRTUAL_W, TRAY_Y + 1.0f);
 
-    /* dice */
-    for (int i = 0; i < MAX_DICE; i++) {
-        if (i == game->dragging_dice) continue;
+    /* dice tray */
+    for (int i = 0; i < MAX_DICE; i++)
         draw_die(r, &game->dice[i]);
+
+    /* rolled-but-unplaced character hovers above its die */
+    for (int i = 0; i < MAX_DICE; i++) {
+        Dice *d = &game->dice[i];
+        if (d->state == DICE_ROLLED && i != game->dragging_dice) {
+            float bob = sinf(d->anim_t * 3.5f) * 4.0f;
+            draw_unit_token(r, game->sprite_atlas, d->face,
+                            d->home_x, d->home_y - 42 + bob, 1.0f, 175, d->anim_t);
+        }
     }
-    if (game->dragging_dice >= 0)
-        draw_die(r, &game->dice[game->dragging_dice]);
+
+    /* the rolled character in hand follows the cursor */
+    if (game->dragging_dice >= 0) {
+        Dice *d = &game->dice[game->dragging_dice];
+        draw_unit_token(r, game->sprite_atlas, d->face,
+                        game->drag_x, game->drag_y, 1.4f, 235, d->anim_t);
+    }
 
     /* HUD */
     draw_pixel_rect(r, 0, 0, VIRTUAL_W, HUD_H, 31, 24, 47, 245);
@@ -519,7 +590,7 @@ static void render_playing(Game *game) {
         SDL_SetRenderScale(r, 1, 1);
     }
 
-    /* unit label while dragging */
+    /* unit label while dragging the rolled character */
     if (game->dragging_dice >= 0) {
         Dice *d = &game->dice[game->dragging_dice];
         const char *names[] = {"", "SPEAR", "ARCHER", "KNIGHT", "CAMEL", "SAGE", "ELEPHANT"};
@@ -528,7 +599,7 @@ static void render_playing(Game *game) {
             SDL_SetRenderDrawColor(r, UNIT_COLORS[face].r, UNIT_COLORS[face].g, UNIT_COLORS[face].b, 255);
             SDL_SetRenderScale(r, 1.5f, 1.5f);
             float tw = (float)SDL_strlen(names[face]) * 8;
-            SDL_RenderDebugText(r, d->x/1.5f - tw/2, (d->y - 40)/1.5f, names[face]);
+            SDL_RenderDebugText(r, game->drag_x/1.5f - tw/2, (game->drag_y - 52)/1.5f, names[face]);
             SDL_SetRenderScale(r, 1, 1);
         }
     }

@@ -195,11 +195,11 @@ void ui_render_settings(Game *game) {
                          nk_rgba(120, 239, 229, 230));
 
         nk_layout_row_dynamic(ctx, 16, 1);
-        nk_label_colored(ctx, "Drag dice onto the field", NK_TEXT_LEFT, nk_rgba(201, 238, 218, 210));
+        nk_label_colored(ctx, "Tap a die to roll it.", NK_TEXT_LEFT, nk_rgba(201, 238, 218, 210));
         nk_layout_row_dynamic(ctx, 16, 1);
-        nk_label_colored(ctx, "to summon warriors.", NK_TEXT_LEFT, nk_rgba(201, 238, 218, 210));
+        nk_label_colored(ctx, "Drag the summoned warrior", NK_TEXT_LEFT, nk_rgba(201, 238, 218, 210));
         nk_layout_row_dynamic(ctx, 16, 1);
-        nk_label_colored(ctx, "Each face = different unit.", NK_TEXT_LEFT, nk_rgba(201, 238, 218, 210));
+        nk_label_colored(ctx, "onto a lane to place it.", NK_TEXT_LEFT, nk_rgba(201, 238, 218, 210));
         nk_layout_row_dynamic(ctx, 16, 1);
         nk_label_colored(ctx, "Stop the demons!", NK_TEXT_LEFT, nk_rgba(201, 238, 218, 210));
 
