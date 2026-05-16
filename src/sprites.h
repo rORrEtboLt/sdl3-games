@@ -3,10 +3,11 @@
 
 #include <SDL3/SDL.h>
 
-#define SPRITE_SIZE 24
-#define ATLAS_W 256
+#define SPRITE_SIZE 32
+#define ATLAS_W 512
 #define ATLAS_H 256
 
+SDL_Surface *sprite_atlas_build_surface(void);
 SDL_Texture *sprite_atlas_init(SDL_Renderer *renderer);
 void sprite_atlas_cleanup(SDL_Texture *atlas);
 

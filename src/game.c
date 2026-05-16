@@ -302,6 +302,8 @@ void game_start(Game *game) {
         d->y = d->home_y;
         d->cooldown_timer = 0;
         d->roll_anim_timer = 0;
+        d->roll_time = 0;
+        d->anim_t = 0;
     }
 }
 
@@ -399,14 +401,24 @@ void game_handle_event(Game *game, SDL_Event *event) {
         if (game->state == STATE_PLAYING && game->dragging_dice < 0) {
             for (int i = 0; i < MAX_DICE; i++) {
                 Dice *d = &game->dice[i];
-                if (d->state != DICE_READY) continue;
-                float dx = mx - d->x, dy = my - d->y;
-                if (dx*dx + dy*dy < 40*40) {
-                    d->state = DICE_DRAGGING;
-                    d->roll_anim_timer = 0;
-                    game->dragging_dice = i;
-                    game->drag_x = mx; game->drag_y = my;
-                    break;
+                if (d->state == DICE_READY) {
+                    float dx = mx - d->home_x, dy = my - d->home_y;
+                    if (dx*dx + dy*dy < 36*36) {
+                        d->state = DICE_ROLLING;
+                        d->roll_time = 0;
+                        d->roll_anim_timer = 0;
+                        d->anim_t = 0;
+                        break;
+                    }
+                } else if (d->state == DICE_ROLLED) {
+                    /* pickup box spans die and the token hovering above it */
+                    if (mx > d->home_x - 38 && mx < d->home_x + 38 &&
+                        my > d->home_y - 60 && my < d->home_y + 34) {
+                        d->state = DICE_DRAGGING;
+                        game->dragging_dice = i;
+                        game->drag_x = mx; game->drag_y = my;
+                        break;
+                    }
                 }
             }
         }
@@ -420,8 +432,6 @@ void game_handle_event(Game *game, SDL_Event *event) {
             SDL_RenderCoordinatesFromWindow(game->renderer, event->motion.x, event->motion.y, &mx, &my);
         if (game->dragging_dice >= 0) {
             game->drag_x = mx; game->drag_y = my;
-            game->dice[game->dragging_dice].x = mx;
-            game->dice[game->dragging_dice].y = my;
         }
         break;
     }
@@ -438,7 +448,6 @@ void game_handle_event(Game *game, SDL_Event *event) {
                 int lane = (int)(mx / LANE_W);
                 if (lane < 0) lane = 0;
                 if (lane >= NUM_LANES) lane = NUM_LANES - 1;
-                d->face = random_range(1, 6);
                 UnitType type = (UnitType)d->face;
 
                 for (int i = 0; i < MAX_ENEMIES; i++) {
@@ -463,7 +472,7 @@ void game_handle_event(Game *game, SDL_Event *event) {
                 d->state = DICE_COOLDOWN_STATE;
                 d->cooldown_timer = DICE_COOLDOWN;
             } else {
-                d->state = DICE_READY;
+                d->state = DICE_ROLLED;   /* keep the rolled character, retry placement */
             }
             d->x = d->home_x; d->y = d->home_y;
             game->dragging_dice = -1;
@@ -481,10 +490,25 @@ static void update_dice(Game *game, float dt) {
         Dice *d = &game->dice[i];
         if (d->state == DICE_COOLDOWN_STATE) {
             d->cooldown_timer -= dt;
-            if (d->cooldown_timer <= 0) { d->state = DICE_READY; d->face = random_range(1, 6); }
-        } else if (d->state == DICE_DRAGGING) {
+            if (d->cooldown_timer <= 0) { d->state = DICE_READY; d->anim_t = 0; }
+        } else if (d->state == DICE_ROLLING) {
+            d->roll_time += dt;
             d->roll_anim_timer += dt;
-            if (d->roll_anim_timer >= 0.1f) { d->roll_anim_timer = 0; d->face = random_range(1, 6); }
+            d->anim_t += dt;
+            /* tumble faster early, slow toward the end */
+            float step = 0.04f + 0.10f * (d->roll_time / DICE_ROLL_TIME);
+            if (d->roll_anim_timer >= step) {
+                d->roll_anim_timer = 0;
+                d->face = random_range(1, 6);
+            }
+            if (d->roll_time >= DICE_ROLL_TIME) {
+                d->state = DICE_ROLLED;
+                d->face = random_range(1, 6);
+                d->anim_t = 0;
+                spawn_particles(game, d->home_x, d->home_y, 8, 120, 239, 229);
+            }
+        } else {
+            d->anim_t += dt;   /* READY pulse, ROLLED/DRAGGING token bob */
         }
     }
 }

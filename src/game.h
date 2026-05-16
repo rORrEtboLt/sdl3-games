@@ -8,8 +8,8 @@
 #define VIRTUAL_H 700
 
 #define HUD_H 40
-#define FIELD_Y HUD_H
-#define FIELD_H 520
+#define FIELD_Y 108
+#define FIELD_H 452
 #define TRAY_Y (FIELD_Y + FIELD_H)
 #define TRAY_H (VIRTUAL_H - TRAY_Y)
 
@@ -24,6 +24,7 @@
 #define MAX_DECALS 40
 
 #define DICE_COOLDOWN 4.0f
+#define DICE_ROLL_TIME 0.65f
 #define SMUSH_DAMAGE 30.0f
 #define PLAYER_MAX_HP 10
 #define WAVE_PAUSE 5.0f
@@ -47,8 +48,10 @@ typedef enum {
 } EnemyType;
 
 typedef enum {
-    DICE_READY,
-    DICE_DRAGGING,
+    DICE_READY,           /* in tray, tap to roll */
+    DICE_ROLLING,         /* tumbling animation */
+    DICE_ROLLED,          /* settled; spawned token waits to be dragged */
+    DICE_DRAGGING,        /* rolled character token in hand */
     DICE_COOLDOWN_STATE,
 } DiceState;
 
@@ -144,6 +147,8 @@ typedef struct {
     float home_x, home_y;
     float cooldown_timer;
     float roll_anim_timer;
+    float roll_time;
+    float anim_t;
 } Dice;
 
 typedef struct {
