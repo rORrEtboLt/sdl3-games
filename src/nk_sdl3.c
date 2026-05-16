@@ -205,11 +205,27 @@ static void nk_sdl3_render_cmd(struct nk_sdl3 *sdl, const struct nk_command *cmd
         float scale = font_h / 8.0f;
         if (scale < 1.0f) scale = 1.0f;
         if (scale > 4.0f) scale = 4.0f;
-        SDL_SetRenderScale(r, scale, scale);
+        SDL_Rect old_clip;
+        bool had_clip = SDL_GetRenderClipRect(r, &old_clip);
+        if (had_clip && (old_clip.w > 0 || old_clip.h > 0)) {
+            SDL_Rect scaled_clip = {
+                (int)(old_clip.x / scale),
+                (int)(old_clip.y / scale),
+                (int)ceilf(old_clip.w / scale),
+                (int)ceilf(old_clip.h / scale)
+            };
+            SDL_SetRenderScale(r, scale, scale);
+            SDL_SetRenderClipRect(r, &scaled_clip);
+        } else {
+            SDL_SetRenderScale(r, scale, scale);
+        }
         float tx = (float)txt->x / scale;
         float ty = ((float)txt->y + ((float)txt->h - font_h) * 0.5f) / scale;
         SDL_RenderDebugText(r, tx, ty, buf);
         SDL_SetRenderScale(r, 1.0f, 1.0f);
+        if (had_clip && (old_clip.w > 0 || old_clip.h > 0)) {
+            SDL_SetRenderClipRect(r, &old_clip);
+        }
         break;
     }
     case NK_COMMAND_IMAGE: {

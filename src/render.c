@@ -307,47 +307,86 @@ static void draw_ornament_line(SDL_Renderer *r, float cx, float y, float half_w)
     draw_filled_circle(r, cx, y, 4);
 }
 
-static void draw_gothic_backdrop(SDL_Renderer *r) {
-    draw_pixel_rect(r, 0, 0, VIRTUAL_W, VIRTUAL_H, 44, 25, 56, 255);
-    draw_pixel_rect(r, 0, 0, VIRTUAL_W, 98, 99, 31, 69, 255);
-    draw_pixel_speckles(r, 0, 0, VIRTUAL_W, 98, 226, 232, 214, 50, 29);
-
-    SDL_SetRenderDrawColor(r, 205, 217, 231, 255);
-    draw_filled_circle(r, VIRTUAL_W / 2.0f + 44, 44, 26);
-    SDL_SetRenderDrawColor(r, 99, 31, 69, 255);
-    draw_filled_circle(r, VIRTUAL_W / 2.0f + 54, 38, 24);
-
-    for (int i = -1; i < 7; i++) {
-        float x = i * 72.0f - 20.0f;
-        SDL_SetRenderDrawColor(r, 34, 33, 56, 255);
-        draw_triangle(r, x, 105, x + 44, 42 + (i & 1) * 14, x + 92, 105);
-        SDL_SetRenderDrawColor(r, 64, 98, 135, 255);
-        draw_triangle(r, x + 22, 105, x + 44, 42 + (i & 1) * 14, x + 92, 105);
-        SDL_SetRenderDrawColor(r, 24, 22, 39, 255);
-        SDL_RenderLine(r, x + 44, 42 + (i & 1) * 14, x + 52, 105);
+static void draw_shikhara(SDL_Renderer *r, float cx, float base_y, float w, float h) {
+    for (float y = 0; y < h; y += 1.0f) {
+        float t = y / h;
+        float curve = 1.0f - t * t;
+        float hw = (w * 0.5f) * (0.3f + 0.7f * curve);
+        SDL_RenderLine(r, cx - hw, base_y - y, cx + hw, base_y - y);
     }
+    draw_filled_circle(r, cx, base_y - h, w * 0.18f);
+    draw_pixel_rect(r, cx - 2, base_y - h - w * 0.25f, 4, w * 0.15f, 229, 174, 58, 180);
+}
 
+static void draw_temple_backdrop(SDL_Renderer *r) {
+    /* sky: deep indigo-purple gradient */
+    draw_pixel_rect(r, 0, 0, VIRTUAL_W, VIRTUAL_H, 31, 24, 47, 255);
+    draw_pixel_rect(r, 0, 0, VIRTUAL_W, 98, 42, 28, 56, 255);
+    draw_pixel_speckles(r, 0, 0, VIRTUAL_W, 98, 229, 174, 58, 30, 29);
+
+    /* crescent moon */
+    SDL_SetRenderDrawColor(r, 226, 232, 214, 200);
+    draw_filled_circle(r, VIRTUAL_W / 2.0f + 44, 40, 22);
+    SDL_SetRenderDrawColor(r, 42, 28, 56, 255);
+    draw_filled_circle(r, VIRTUAL_W / 2.0f + 52, 34, 20);
+
+    /* shikhara temple silhouettes */
+    SDL_SetRenderDrawColor(r, 21, 16, 42, 255);
+    draw_shikhara(r, 50, 105, 48, 58);
+    draw_shikhara(r, 200, 105, 64, 78);
+    draw_shikhara(r, 340, 105, 44, 50);
+
+    /* gopuram gateway (stepped pyramid) at centre */
+    SDL_SetRenderDrawColor(r, 26, 22, 42, 255);
+    for (int step = 0; step < 5; step++) {
+        float sw = 70 - step * 10;
+        float sy = 105 - step * 12;
+        draw_pixel_rect(r, 200 - sw / 2, sy - 6, (int)sw, 8, 26, 22, 42, 255);
+    }
+    draw_pixel_rect(r, 196, 46, 8, 6, 229, 174, 58, 140);
+
+    /* base wall: temple plinth with lotus crenellations */
     draw_pixel_rect(r, 0, FIELD_Y + FIELD_H - 8, VIRTUAL_W, 58, 31, 24, 47, 255);
-    for (int x = 0; x < VIRTUAL_W; x += 42) {
-        draw_pixel_rect(r, x + 8, FIELD_Y + FIELD_H - 16, 24, 14, 31, 24, 47, 255);
-        draw_pixel_rect(r, x + 8, FIELD_Y + FIELD_H - 19, 24, 3, 64, 98, 135, 255);
+    for (int x = 0; x < VIRTUAL_W; x += 36) {
+        float cx = x + 18.0f;
+        float cy = (float)(FIELD_Y + FIELD_H - 14);
+        SDL_SetRenderDrawColor(r, 229, 174, 58, 100);
+        draw_filled_circle(r, cx, cy, 6);
+        SDL_SetRenderDrawColor(r, 31, 24, 47, 255);
+        draw_filled_circle(r, cx, cy, 3);
+        draw_pixel_rect(r, x + 6, FIELD_Y + FIELD_H - 6, 24, 4, 64, 98, 135, 200);
     }
 
-    draw_pixel_rect(r, -16, 64, 44, FIELD_H + 24, 34, 33, 56, 255);
-    draw_pixel_rect(r, 6, 86, 10, FIELD_H - 26, 64, 98, 135, 255);
-    for (int y = 72; y < FIELD_Y + FIELD_H; y += 34) {
-        draw_pixel_rect(r, 0, y, 24, 8, 64, 98, 135, 255);
+    /* left pillar: lotus-column style */
+    draw_pixel_rect(r, -8, 70, 36, FIELD_H + 18, 34, 28, 50, 255);
+    draw_pixel_rect(r, 8, 88, 10, FIELD_H - 22, 64, 98, 135, 180);
+    for (int y = 80; y < FIELD_Y + FIELD_H; y += 28) {
+        SDL_SetRenderDrawColor(r, 229, 174, 58, 80);
+        draw_filled_circle(r, 14, (float)y, 5);
+        SDL_SetRenderDrawColor(r, 34, 28, 50, 255);
+        draw_filled_circle(r, 14, (float)y, 2);
     }
-    draw_pixel_rect(r, VIRTUAL_W - 26, 100, 52, FIELD_H - 32, 34, 33, 56, 255);
-    draw_pixel_speckles(r, 0, 140, 30, FIELD_H - 70, 204, 73, 118, 100, 91);
-    draw_pixel_speckles(r, VIRTUAL_W - 28, 140, 28, FIELD_H - 70, 204, 73, 118, 95, 93);
+
+    /* right pillar */
+    draw_pixel_rect(r, VIRTUAL_W - 26, 100, 52, FIELD_H - 32, 34, 28, 50, 255);
+    draw_pixel_rect(r, VIRTUAL_W - 18, 110, 10, FIELD_H - 50, 64, 98, 135, 180);
+    for (int y = 108; y < FIELD_Y + FIELD_H; y += 28) {
+        SDL_SetRenderDrawColor(r, 229, 174, 58, 80);
+        draw_filled_circle(r, VIRTUAL_W - 12.0f, (float)y, 5);
+        SDL_SetRenderDrawColor(r, 34, 28, 50, 255);
+        draw_filled_circle(r, VIRTUAL_W - 12.0f, (float)y, 2);
+    }
+
+    /* warm speckles on pillars (saffron/kumkum stains) */
+    draw_pixel_speckles(r, 0, 140, 30, FIELD_H - 70, 229, 174, 58, 50, 91);
+    draw_pixel_speckles(r, VIRTUAL_W - 28, 140, 28, FIELD_H - 70, 229, 174, 58, 45, 93);
 }
 
 /* ---------- screen renders ---------- */
 
 static void render_splash(Game *game) {
     SDL_Renderer *r = game->renderer;
-    draw_gothic_backdrop(r);
+    draw_temple_backdrop(r);
     Uint8 alpha = (Uint8)(255 * game->splash_fade);
 
     SDL_SetRenderDrawColor(r, 120, 239, 229, (Uint8)(alpha * 0.2f));
@@ -393,7 +432,7 @@ static void render_playing(Game *game) {
     SDL_Renderer *r = game->renderer;
     float sx = game->shake_x, sy = game->shake_y;
 
-    draw_gothic_backdrop(r);
+    draw_temple_backdrop(r);
 
     /* checkerboard graveyard lanes */
     draw_pixel_rect(r, sx, FIELD_Y + sy, VIRTUAL_W, FIELD_H, 6, 116, 83, 255);
@@ -612,18 +651,18 @@ void render_game(Game *game) {
         render_splash(game);
         break;
     case STATE_MENU:
-        draw_gothic_backdrop(game->renderer);
+        draw_temple_backdrop(game->renderer);
         ui_render_menu(game);
         break;
     case STATE_SETTINGS:
-        draw_gothic_backdrop(game->renderer);
+        draw_temple_backdrop(game->renderer);
         ui_render_settings(game);
         break;
     case STATE_PLAYING:
         render_playing(game);
         break;
     case STATE_GAME_OVER:
-        draw_gothic_backdrop(game->renderer);
+        draw_temple_backdrop(game->renderer);
         ui_render_game_over(game);
         break;
     }
