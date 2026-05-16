@@ -3,37 +3,37 @@
 
 static void setup_theme(struct nk_context *ctx) {
     struct nk_color table[NK_COLOR_COUNT];
-    table[NK_COLOR_TEXT]                    = nk_rgba(220, 200, 150, 255);
-    table[NK_COLOR_WINDOW]                  = nk_rgba(18, 14, 28, 240);
-    table[NK_COLOR_HEADER]                  = nk_rgba(30, 25, 45, 255);
-    table[NK_COLOR_BORDER]                  = nk_rgba(140, 110, 50, 180);
-    table[NK_COLOR_BUTTON]                  = nk_rgba(50, 38, 60, 255);
-    table[NK_COLOR_BUTTON_HOVER]            = nk_rgba(70, 55, 85, 255);
-    table[NK_COLOR_BUTTON_ACTIVE]           = nk_rgba(90, 70, 40, 255);
-    table[NK_COLOR_TOGGLE]                  = nk_rgba(40, 30, 50, 255);
-    table[NK_COLOR_TOGGLE_HOVER]            = nk_rgba(60, 48, 70, 255);
-    table[NK_COLOR_TOGGLE_CURSOR]           = nk_rgba(200, 170, 80, 255);
-    table[NK_COLOR_SELECT]                  = nk_rgba(40, 30, 50, 255);
-    table[NK_COLOR_SELECT_ACTIVE]           = nk_rgba(200, 170, 80, 255);
-    table[NK_COLOR_SLIDER]                  = nk_rgba(40, 30, 50, 255);
-    table[NK_COLOR_SLIDER_CURSOR]           = nk_rgba(200, 170, 80, 255);
-    table[NK_COLOR_SLIDER_CURSOR_HOVER]     = nk_rgba(230, 200, 100, 255);
-    table[NK_COLOR_SLIDER_CURSOR_ACTIVE]    = nk_rgba(255, 220, 120, 255);
-    table[NK_COLOR_PROPERTY]                = nk_rgba(40, 30, 50, 255);
-    table[NK_COLOR_EDIT]                    = nk_rgba(30, 22, 40, 255);
-    table[NK_COLOR_EDIT_CURSOR]             = nk_rgba(200, 170, 80, 255);
-    table[NK_COLOR_COMBO]                   = nk_rgba(40, 30, 50, 255);
-    table[NK_COLOR_CHART]                   = nk_rgba(40, 30, 50, 255);
-    table[NK_COLOR_CHART_COLOR]             = nk_rgba(200, 170, 80, 255);
-    table[NK_COLOR_CHART_COLOR_HIGHLIGHT]   = nk_rgba(255, 220, 120, 255);
-    table[NK_COLOR_SCROLLBAR]               = nk_rgba(30, 22, 40, 255);
-    table[NK_COLOR_SCROLLBAR_CURSOR]        = nk_rgba(80, 65, 45, 255);
-    table[NK_COLOR_SCROLLBAR_CURSOR_HOVER]  = nk_rgba(100, 85, 55, 255);
-    table[NK_COLOR_SCROLLBAR_CURSOR_ACTIVE] = nk_rgba(120, 100, 65, 255);
-    table[NK_COLOR_TAB_HEADER]              = nk_rgba(40, 30, 50, 255);
+    table[NK_COLOR_TEXT]                    = nk_rgba(226, 232, 214, 255);
+    table[NK_COLOR_WINDOW]                  = nk_rgba(31, 24, 47, 238);
+    table[NK_COLOR_HEADER]                  = nk_rgba(42, 48, 74, 245);
+    table[NK_COLOR_BORDER]                  = nk_rgba(64, 98, 135, 255);
+    table[NK_COLOR_BUTTON]                  = nk_rgba(64, 98, 135, 240);
+    table[NK_COLOR_BUTTON_HOVER]            = nk_rgba(92, 168, 151, 245);
+    table[NK_COLOR_BUTTON_ACTIVE]           = nk_rgba(204, 73, 118, 255);
+    table[NK_COLOR_TOGGLE]                  = nk_rgba(42, 48, 74, 245);
+    table[NK_COLOR_TOGGLE_HOVER]            = nk_rgba(64, 98, 135, 245);
+    table[NK_COLOR_TOGGLE_CURSOR]           = nk_rgba(120, 239, 229, 255);
+    table[NK_COLOR_SELECT]                  = nk_rgba(42, 48, 74, 245);
+    table[NK_COLOR_SELECT_ACTIVE]           = nk_rgba(120, 239, 229, 255);
+    table[NK_COLOR_SLIDER]                  = nk_rgba(42, 48, 74, 245);
+    table[NK_COLOR_SLIDER_CURSOR]           = nk_rgba(120, 239, 229, 255);
+    table[NK_COLOR_SLIDER_CURSOR_HOVER]     = nk_rgba(201, 238, 218, 255);
+    table[NK_COLOR_SLIDER_CURSOR_ACTIVE]    = nk_rgba(229, 174, 58, 255);
+    table[NK_COLOR_PROPERTY]                = nk_rgba(42, 48, 74, 245);
+    table[NK_COLOR_EDIT]                    = nk_rgba(20, 15, 32, 245);
+    table[NK_COLOR_EDIT_CURSOR]             = nk_rgba(120, 239, 229, 255);
+    table[NK_COLOR_COMBO]                   = nk_rgba(42, 48, 74, 245);
+    table[NK_COLOR_CHART]                   = nk_rgba(42, 48, 74, 245);
+    table[NK_COLOR_CHART_COLOR]             = nk_rgba(120, 239, 229, 255);
+    table[NK_COLOR_CHART_COLOR_HIGHLIGHT]   = nk_rgba(229, 174, 58, 255);
+    table[NK_COLOR_SCROLLBAR]               = nk_rgba(20, 15, 32, 245);
+    table[NK_COLOR_SCROLLBAR_CURSOR]        = nk_rgba(64, 98, 135, 255);
+    table[NK_COLOR_SCROLLBAR_CURSOR_HOVER]  = nk_rgba(92, 168, 151, 255);
+    table[NK_COLOR_SCROLLBAR_CURSOR_ACTIVE] = nk_rgba(120, 239, 229, 255);
+    table[NK_COLOR_TAB_HEADER]              = nk_rgba(42, 48, 74, 245);
     nk_style_from_table(ctx, table);
 
-    ctx->style.button.rounding = 4;
+    ctx->style.button.rounding = 0;
     ctx->style.button.padding = nk_vec2(12, 8);
     ctx->style.window.spacing = nk_vec2(8, 8);
     ctx->style.window.padding = nk_vec2(16, 16);
@@ -101,11 +101,11 @@ void ui_render_menu(Game *game) {
 
         nk_layout_row_dynamic(ctx, 30, 1);
         nk_label_colored(ctx, "M A A Y A V I", NK_TEXT_CENTERED,
-                         nk_rgba(255, 200, 50, 255));
+                         nk_rgba(226, 232, 214, 255));
 
         nk_layout_row_dynamic(ctx, 20, 1);
         nk_label_colored(ctx, "Dice Lane Defense", NK_TEXT_CENTERED,
-                         nk_rgba(180, 160, 120, 180));
+                         nk_rgba(120, 239, 229, 230));
 
         nk_layout_row_dynamic(ctx, 50, 1);
         nk_spacing(ctx, 1);
@@ -129,7 +129,7 @@ void ui_render_menu(Game *game) {
 
         nk_layout_row_dynamic(ctx, 15, 1);
         nk_label_colored(ctx, "v1.0", NK_TEXT_CENTERED,
-                         nk_rgba(100, 90, 80, 120));
+                         nk_rgba(117, 113, 143, 180));
     }
     nk_end(ctx);
 
@@ -155,7 +155,7 @@ void ui_render_settings(Game *game) {
 
         nk_layout_row_dynamic(ctx, 25, 1);
         nk_label_colored(ctx, "SETTINGS", NK_TEXT_CENTERED,
-                         nk_rgba(255, 200, 50, 255));
+                         nk_rgba(226, 232, 214, 255));
 
         nk_layout_row_dynamic(ctx, 15, 1);
         nk_spacing(ctx, 1);
@@ -185,23 +185,23 @@ void ui_render_settings(Game *game) {
             "More enemies, faster spawns"
         };
         nk_label_colored(ctx, diff_desc[game->settings.difficulty], NK_TEXT_CENTERED,
-                         nk_rgba(130, 120, 100, 200));
+                         nk_rgba(117, 113, 143, 230));
 
         nk_layout_row_dynamic(ctx, 20, 1);
         nk_spacing(ctx, 1);
 
         nk_layout_row_dynamic(ctx, 20, 1);
         nk_label_colored(ctx, "How to Play", NK_TEXT_LEFT,
-                         nk_rgba(180, 170, 140, 200));
+                         nk_rgba(120, 239, 229, 230));
 
         nk_layout_row_dynamic(ctx, 16, 1);
-        nk_label_colored(ctx, "Drag dice onto the field", NK_TEXT_LEFT, nk_rgba(150, 140, 120, 180));
+        nk_label_colored(ctx, "Drag dice onto the field", NK_TEXT_LEFT, nk_rgba(201, 238, 218, 210));
         nk_layout_row_dynamic(ctx, 16, 1);
-        nk_label_colored(ctx, "to summon warriors.", NK_TEXT_LEFT, nk_rgba(150, 140, 120, 180));
+        nk_label_colored(ctx, "to summon warriors.", NK_TEXT_LEFT, nk_rgba(201, 238, 218, 210));
         nk_layout_row_dynamic(ctx, 16, 1);
-        nk_label_colored(ctx, "Each face = different unit.", NK_TEXT_LEFT, nk_rgba(150, 140, 120, 180));
+        nk_label_colored(ctx, "Each face = different unit.", NK_TEXT_LEFT, nk_rgba(201, 238, 218, 210));
         nk_layout_row_dynamic(ctx, 16, 1);
-        nk_label_colored(ctx, "Stop the demons!", NK_TEXT_LEFT, nk_rgba(150, 140, 120, 180));
+        nk_label_colored(ctx, "Stop the demons!", NK_TEXT_LEFT, nk_rgba(201, 238, 218, 210));
 
         nk_layout_row_dynamic(ctx, 15, 1);
         nk_spacing(ctx, 1);
@@ -235,7 +235,7 @@ void ui_render_game_over(Game *game) {
         nk_spacing(ctx, 1);
 
         nk_layout_row_dynamic(ctx, 30, 1);
-        nk_label_colored(ctx, "GAME OVER", NK_TEXT_CENTERED, nk_rgba(255, 60, 60, 255));
+        nk_label_colored(ctx, "GAME OVER", NK_TEXT_CENTERED, nk_rgba(204, 73, 118, 255));
 
         nk_layout_row_dynamic(ctx, 15, 1);
         nk_spacing(ctx, 1);
@@ -243,11 +243,11 @@ void ui_render_game_over(Game *game) {
         char buf[64];
         nk_layout_row_dynamic(ctx, 22, 1);
         SDL_snprintf(buf, sizeof(buf), "Score: %d", game->score);
-        nk_label_colored(ctx, buf, NK_TEXT_CENTERED, nk_rgba(255, 200, 50, 255));
+        nk_label_colored(ctx, buf, NK_TEXT_CENTERED, nk_rgba(229, 174, 58, 255));
 
         nk_layout_row_dynamic(ctx, 22, 1);
         SDL_snprintf(buf, sizeof(buf), "Wave: %d", game->wave);
-        nk_label_colored(ctx, buf, NK_TEXT_CENTERED, nk_rgba(255, 200, 50, 255));
+        nk_label_colored(ctx, buf, NK_TEXT_CENTERED, nk_rgba(229, 174, 58, 255));
 
         nk_layout_row_dynamic(ctx, 30, 1);
         nk_spacing(ctx, 1);

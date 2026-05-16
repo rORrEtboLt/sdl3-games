@@ -8,8 +8,8 @@
 #define VIRTUAL_H 700
 
 #define HUD_H 40
-#define FIELD_Y HUD_H
-#define FIELD_H 520
+#define FIELD_Y 108
+#define FIELD_H 452
 #define TRAY_Y (FIELD_Y + FIELD_H)
 #define TRAY_H (VIRTUAL_H - TRAY_Y)
 
