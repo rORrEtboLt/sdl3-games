@@ -1,6 +1,10 @@
 #include "ui.h"
 #include <stdio.h>
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
+
 static void setup_theme(struct nk_context *ctx) {
     struct nk_color table[NK_COLOR_COUNT];
     table[NK_COLOR_TEXT]                    = nk_rgba(226, 232, 214, 255);
@@ -224,39 +228,74 @@ void ui_render_game_over(Game *game) {
 
     nk_sdl3_new_frame(sdl);
 
-    float panel_w = 340, panel_h = 320;
+    float panel_w = 340, panel_h = 400;
     float px = (VIRTUAL_W - panel_w) / 2;
-    float py = 100;
+    float py = 80;
 
     if (nk_begin(ctx, "gameover", nk_rect(px, py, panel_w, panel_h),
                  NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BORDER)) {
-
-        nk_layout_row_dynamic(ctx, 20, 1);
-        nk_spacing(ctx, 1);
-
-        nk_layout_row_dynamic(ctx, 30, 1);
-        nk_label_colored(ctx, "GAME OVER", NK_TEXT_CENTERED, nk_rgba(204, 73, 118, 255));
 
         nk_layout_row_dynamic(ctx, 15, 1);
         nk_spacing(ctx, 1);
 
         char buf[64];
-        nk_layout_row_dynamic(ctx, 22, 1);
-        SDL_snprintf(buf, sizeof(buf), "Score: %d", game->score);
-        nk_label_colored(ctx, buf, NK_TEXT_CENTERED, nk_rgba(229, 174, 58, 255));
-
-        nk_layout_row_dynamic(ctx, 22, 1);
-        SDL_snprintf(buf, sizeof(buf), "Wave: %d", game->wave);
-        nk_label_colored(ctx, buf, NK_TEXT_CENTERED, nk_rgba(229, 174, 58, 255));
-
+        SDL_snprintf(buf, sizeof(buf), "Wave %d Reached", game->wave);
         nk_layout_row_dynamic(ctx, 30, 1);
+        nk_label_colored(ctx, buf, NK_TEXT_CENTERED, nk_rgba(255, 200, 50, 255));
+
+        nk_layout_row_dynamic(ctx, 10, 1);
         nk_spacing(ctx, 1);
 
+        SDL_snprintf(buf, sizeof(buf), "Score: %d", game->score);
+        nk_layout_row_dynamic(ctx, 26, 1);
+        nk_label_colored(ctx, buf, NK_TEXT_CENTERED, nk_rgba(255, 220, 80, 255));
+
+        nk_layout_row_dynamic(ctx, 20, 1);
+        nk_spacing(ctx, 1);
+
+#ifdef __EMSCRIPTEN__
+        /* Share button -- primary action (gold styling) */
+        nk_style_push_color(ctx, &ctx->style.button.normal.data.color, nk_rgba(180, 140, 30, 255));
+        nk_style_push_color(ctx, &ctx->style.button.hover.data.color, nk_rgba(210, 170, 40, 255));
+        nk_style_push_color(ctx, &ctx->style.button.active.data.color, nk_rgba(230, 190, 50, 255));
+        nk_layout_row_dynamic(ctx, 50, 1);
+        if (nk_button_label(ctx, "CHALLENGE A FRIEND")) {
+            EM_ASM({
+                var score = $0;
+                var url = window.location.origin + window.location.pathname + '?score=' + score;
+                var text = 'I scored ' + score + ' in Maayavi — can you beat me? ' + url;
+                navigator.clipboard.writeText(text).then(function() {
+                    var fb = document.getElementById('share-feedback');
+                    if (fb) { fb.textContent = 'Link copied!'; fb.style.display = 'block'; }
+                    setTimeout(function() { if (fb) fb.style.display = 'none'; }, 2000);
+                }).catch(function() {
+                    var fb = document.getElementById('share-fallback');
+                    if (fb) {
+                        fb.style.display = 'block';
+                        var inp = document.getElementById('share-fallback-input');
+                        if (inp) { inp.value = text; inp.select(); }
+                    }
+                });
+            }, game->score);
+        }
+        nk_style_pop_color(ctx);
+        nk_style_pop_color(ctx);
+        nk_style_pop_color(ctx);
+
+        nk_layout_row_dynamic(ctx, 10, 1);
+        nk_spacing(ctx, 1);
+
+        nk_layout_row_dynamic(ctx, 40, 1);
+        if (nk_button_label(ctx, "PLAY AGAIN")) {
+            game_start(game);
+        }
+#else
         nk_layout_row_dynamic(ctx, 50, 1);
         if (nk_button_label(ctx, "BACK TO MENU")) {
             game->state = STATE_MENU;
             game->menu_anim_timer = 0;
         }
+#endif
     }
     nk_end(ctx);
 

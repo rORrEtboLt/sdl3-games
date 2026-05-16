@@ -2,6 +2,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
+
 typedef struct { float hp, damage, cooldown, range; } UnitStats;
 static const UnitStats UNIT_STATS[] = {
     [UNIT_NONE]   = {0,   0,  0,    0},
@@ -807,6 +811,15 @@ static void update_screen_flash(Game *game, float dt) {
 }
 
 void game_update(Game *game, float dt) {
+#ifdef __EMSCRIPTEN__
+    int overlay_visible = EM_ASM_INT({
+        var onb = document.getElementById('onboarding');
+        var ch = document.getElementById('challenge-overlay');
+        return (onb && onb.style.display === 'flex') ||
+               (ch && ch.style.display === 'flex') ? 1 : 0;
+    });
+    if (overlay_visible) return;
+#endif
     if (game->state == STATE_SPLASH) {
         game->splash_timer += dt;
         if (game->splash_timer < 1.5f)

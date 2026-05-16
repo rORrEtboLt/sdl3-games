@@ -50,6 +50,10 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
     game_init(game);
     ui_init(game);
 
+#ifdef __EMSCRIPTEN__
+    game_start(game);
+#endif
+
     *appstate = game;
     return SDL_APP_CONTINUE;
 }
